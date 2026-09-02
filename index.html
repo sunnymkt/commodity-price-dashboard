@@ -1,0 +1,1854 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원물 시세 대시보드</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --status-good:      #0ca30c;
+    --status-warning:   #fab219;
+    --status-serious:   #ec835a;
+    --status-critical:  #d03b3b;
+    --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
+    --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7;
+    --cat-8: #e34948; --cat-9: #6b7280; --cat-10: #8b5e34;
+    --cat-11: #9c8a2e; --cat-12: #c23074;
+    --tab-status: #2a78d6; --tab-season: #0e8a7d; --tab-issue: #c2660a; --tab-hike: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --status-good:      #0ca30c;
+      --status-warning:   #fab219;
+      --status-serious:   #ec835a;
+      --status-critical:  #e66767;
+      --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+      --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
+      --cat-8: #e66767; --cat-9: #9aa4b2; --cat-10: #c68a52;
+      --cat-11: #c2ad4c; --cat-12: #de5b93;
+      --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --status-good:      #0ca30c;
+    --status-warning:   #fab219;
+    --status-serious:   #ec835a;
+    --status-critical:  #e66767;
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+    --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
+    --cat-8: #e66767; --cat-9: #9aa4b2; --cat-10: #c68a52;
+    --cat-11: #c2ad4c; --cat-12: #de5b93;
+    --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  .viz-root {
+    display: block;
+    min-height: 100vh;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1120px; width: 100%; padding: 32px 24px 64px; }
+  .page-flex { display: flex; justify-content: center; align-items: flex-start; gap: 20px; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 20px;
+    background: #1b2a4e;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 20px 24px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #ffffff; }
+  .subtitle { color: rgba(255,255,255,0.72); font-size: 13px; }
+  .meta { text-align: right; font-size: 12px; color: rgba(255,255,255,0.65); }
+
+  .theme-toggle {
+    border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); color: #ffffff;
+    border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  .theme-toggle:hover { background: rgba(255,255,255,0.18); }
+  .alarm-btn {
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); color: #ffffff;
+    border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .alarm-btn:hover { background: rgba(255,255,255,0.18); }
+  .alarm-badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 16px; height: 16px; padding: 0 3px; border-radius: 999px;
+    background: var(--status-critical); color: #fff; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+
+  .tab-nav {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .tab-nav-tabs { display: flex; gap: 8px; }
+  .item-search-wrap {
+    position: relative; display: flex; align-items: center;
+    width: 240px; max-width: 100%;
+  }
+  .item-search-icon {
+    position: absolute; left: 11px; width: 15px; height: 15px;
+    color: var(--text-muted); pointer-events: none;
+  }
+  .item-search {
+    width: 100%; font-family: inherit; font-size: 13px;
+    padding: 8px 30px 8px 32px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface-1);
+    color: var(--text-primary); outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  .item-search::placeholder { color: var(--text-muted); }
+  .item-search:focus {
+    border-color: var(--series-1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-1) 18%, transparent);
+  }
+  .item-search::-webkit-search-cancel-button { display: none; }
+  .item-search-clear {
+    position: absolute; right: 6px; width: 20px; height: 20px;
+    display: none; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted);
+    font-size: 16px; line-height: 1; cursor: pointer; border-radius: 50%;
+  }
+  .item-search-clear:hover { background: color-mix(in srgb, var(--text-muted) 16%, transparent); color: var(--text-primary); }
+  .item-search-wrap.has-value .item-search-clear { display: flex; }
+  .search-empty {
+    display: none; text-align: center; color: var(--text-muted);
+    font-size: 13px; padding: 40px 0; margin-bottom: 28px;
+    border: 1px dashed var(--border); border-radius: 10px;
+  }
+  .tab-btn {
+    appearance: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    padding: 9px 16px; border-radius: 999px;
+    background: var(--surface-1);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  .tab-btn .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--tab-color); opacity: 0.55; transition: opacity 0.12s ease; }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active {
+    background: color-mix(in srgb, var(--tab-color) 16%, var(--surface-1));
+    color: var(--tab-color);
+    border-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
+  }
+  .tab-btn.active .tab-dot { opacity: 1; }
+  .tab-btn[data-tab="status"] { --tab-color: var(--tab-status); }
+  .tab-btn[data-tab="season"] { --tab-color: var(--tab-season); }
+  .tab-btn[data-tab="issue"] { --tab-color: var(--tab-issue); }
+  .tab-btn[data-tab="hike"] { --tab-color: var(--tab-hike); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* 원물 수매 이슈 탭 */
+  .issue-note { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.6; }
+  .issue-summary {
+    background: color-mix(in srgb, var(--tab-issue) 8%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--tab-issue) 35%, transparent);
+    border-radius: 12px; padding: 16px 18px; margin-bottom: 24px;
+  }
+  .issue-summary h3 { margin: 0 0 4px; font-size: 14px; color: var(--tab-issue); }
+  .issue-summary .issue-summary-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+  .issue-summary-list { display: flex; flex-direction: column; gap: 10px; }
+  .issue-summary-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; }
+  .issue-summary-item .issue-dot {
+    flex: none; width: 7px; height: 7px; border-radius: 50%; margin-top: 6px;
+    background: var(--tab-issue);
+  }
+  .issue-summary-item a.issue-link {
+    font-weight: 700; cursor: pointer; color: var(--text-primary);
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 2px;
+    transition: text-decoration-color 0.12s ease;
+  }
+  .issue-summary-item a.issue-link:hover { text-decoration-color: currentColor; }
+  .issue-summary-empty { font-size: 13px; color: var(--text-muted); }
+
+  .news-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+  }
+  .news-card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; scroll-margin-top: 90px;
+  }
+  .news-card.flagged { border-color: color-mix(in srgb, var(--tab-issue) 55%, var(--border)); }
+  .news-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .news-icon {
+    flex: none; width: 44px; height: 44px; border-radius: 12px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 14%, var(--surface-1));
+    color: var(--item-color, var(--series-1));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .news-icon svg { width: 26px; height: 26px; }
+  .news-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .news-signal-badge {
+    display: inline-flex; align-items: center; gap: 4px; width: fit-content;
+    font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+    color: #9a6b00; background: color-mix(in srgb, var(--status-warning) 22%, transparent);
+  }
+  .news-empty-badge {
+    display: inline-flex; align-items: center; width: fit-content;
+    font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  }
+  .news-signal-text {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+    background: color-mix(in srgb, var(--tab-issue) 8%, transparent);
+    border-left: 3px solid var(--tab-issue);
+    padding: 8px 10px; border-radius: 6px; margin-bottom: 12px;
+  }
+  .news-list { display: flex; flex-direction: column; gap: 10px; }
+  .news-item { padding-top: 10px; border-top: 1px dashed var(--border); }
+  .news-item:first-child { padding-top: 0; border-top: none; }
+  .news-item-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+  .news-item-title a { font-size: 13px; font-weight: 600; color: var(--text-primary); text-decoration: none; }
+  .news-item-title a:hover { text-decoration: underline; color: var(--series-1); }
+  .news-item-summary { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.55; }
+  .news-empty-msg { font-size: 12px; color: var(--text-muted); padding: 4px 0 0; }
+  @keyframes news-card-flash {
+    0% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tab-issue) 45%, transparent); }
+    100% { box-shadow: none; }
+  }
+  .news-card.jump-flash { animation: news-card-flash 1.6s ease-out; }
+
+  /* 식품업계 가격인상 동향 탭 */
+  .hike-cat-group { margin-bottom: 26px; }
+  .hike-cat-title {
+    font-size: 18px; font-weight: 700; color: var(--tab-hike);
+    margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .hike-cat-title .hike-cat-count { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .hike-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .hike-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .hike-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .hike-company { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .hike-pct-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+    color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 14%, transparent);
+  }
+  .hike-date { font-size: 11px; color: var(--text-muted); }
+  .hike-product { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .hike-summary { font-size: 12px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 8px; }
+  .hike-source a { font-size: 11px; color: var(--tab-hike); text-decoration: none; }
+  .hike-source a:hover { text-decoration: underline; }
+
+  .alert-banner {
+    display: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .alert-banner.show { display: block; }
+  /* 배너는 방향 무관 하늘색 통일(소프트 발광) — 급등/급락 구분은 배지로 표시 */
+  .alert-banner.banner-surge, .alert-banner.banner-drop {
+    background: var(--surface-1);
+    border: 1px solid rgba(56,189,248,0.35);
+    border-left: 4px solid #38bdf8;
+    animation: soft-glow-banner 3s ease-in-out infinite;
+  }
+  @keyframes soft-glow-banner {
+    0%, 100% { box-shadow: 0 0 14px 2px rgba(56,189,248,0.22); }
+    50% { box-shadow: 0 0 24px 6px rgba(56,189,248,0.38); }
+  }
+  .alert-banner-head { font-weight: 800; font-size: 16px; margin-bottom: 8px; }
+  .alert-list { display: flex; flex-direction: column; gap: 6px; }
+  .alert-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; cursor: pointer;
+    padding: 6px 8px; border-radius: 8px; transition: background 0.12s ease;
+  }
+  .alert-row:hover { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
+  .alert-row-main { display: flex; align-items: center; gap: 10px; }
+  .alert-row-name { font-weight: 700; font-size: 14px; min-width: 96px; }
+  .alert-row-main .badge { font-size: 13px; padding: 3px 10px; }
+  .alert-row-detail { color: var(--text-muted); font-size: 13px; }
+  .alert-row-related { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; margin-left: auto; }
+  .related-label { color: var(--text-muted); white-space: nowrap; font-size: 14px; }
+  .related-chip {
+    display: inline-flex; align-items: center; padding: 4px 13px; border-radius: 999px; font-size: 14px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 16%, var(--surface-1));
+    color: var(--item-color, var(--series-1)); font-weight: 600; white-space: nowrap; cursor: pointer;
+  }
+  .related-divider { display: inline-block; width: 1px; height: 13px; background: var(--border); }
+  .amv {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000;
+  }
+  .amv.open { display: block; }
+  .am {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #fff; color: #1a1a1a; border-radius: 14px; width: 820px; max-width: calc(100vw - 32px);
+    max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .amh {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid #e5e5e2; font-weight: 700; font-size: 14px;
+    cursor: move; user-select: none;
+  }
+  .amx {
+    background: none; border: none; color: #8a8975; font-size: 16px; cursor: pointer; padding: 4px;
+  }
+  .amb { overflow-y: auto; overflow-x: auto; padding: 6px 18px 18px; font-size: 12.5px; }
+  .amt { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  .amt th, .amt td {
+    text-align: left; padding: 6px 8px; border-bottom: 1px solid #eeeeea; vertical-align: top;
+    word-break: break-word;
+  }
+  .amt th { color: #8a8975; font-weight: 600; font-size: 11.5px; }
+  .amt td.nowrap { white-space: nowrap; }
+  .fsb {
+    background: none; border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 11px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .fsb:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .card:hover, .card:focus-visible {
+    border-color: var(--series-1);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+    z-index: 30;
+  }
+  .card:has(.info-wrap:hover), .card:has(.info-wrap:focus-within) { z-index: 30; }
+  .card:hover .source-hint { opacity: 1; }
+
+  /* 급등=레드 네온, 급락=하늘색 소프트 발광 — 급락 쪽은 "가격 검토 추천" 배너와 동일 톤/스타일 */
+  .card.surge-glow, .card.drop-glow { border-width: 1.5px; }
+  .card.surge-glow {
+    border-color: var(--status-critical);
+    animation: neon-surge 2.4s ease-in-out infinite;
+  }
+  .card.drop-glow {
+    border-color: rgba(56,189,248,0.35);
+    animation: soft-glow-card-drop 3s ease-in-out infinite;
+  }
+  @keyframes neon-surge {
+    0%, 100% { box-shadow: 0 0 5px 0 color-mix(in srgb, var(--status-critical) 55%, transparent), 0 0 14px 2px color-mix(in srgb, var(--status-critical) 25%, transparent); }
+    50% { box-shadow: 0 0 9px 1px color-mix(in srgb, var(--status-critical) 85%, transparent), 0 0 26px 5px color-mix(in srgb, var(--status-critical) 50%, transparent); }
+  }
+  @keyframes soft-glow-card-drop {
+    0%, 100% { box-shadow: 0 0 14px 2px rgba(56,189,248,0.22); }
+    50% { box-shadow: 0 0 24px 6px rgba(56,189,248,0.38); }
+  }
+  .card.jump-flash {
+    animation: card-jump-flash 1.6s ease-out;
+  }
+  @keyframes card-jump-flash {
+    0% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-primary) 35%, transparent); }
+    100% { box-shadow: none; }
+  }
+  .watch-star {
+    position: relative; z-index: 2;
+    border: 1px solid var(--border); background: var(--surface-1); cursor: pointer;
+    padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 700; line-height: 1; color: var(--text-muted); flex: none; white-space: nowrap;
+    transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+  }
+  .watch-star:hover { transform: scale(1.05); border-color: #f5a623; }
+  .watch-star.active { color: #7a4e00; background: #f5a623; border-color: #f5a623; }
+  .source-hint {
+    font-size: 10px; color: var(--text-muted); opacity: 0; transition: opacity 0.12s ease;
+    margin-top: 8px; display: flex; align-items: center; gap: 3px;
+    text-decoration: none;
+  }
+  .source-hint:hover { color: var(--text-muted); text-decoration: none; }
+  .spark-caption {
+    font-size: 10px; color: var(--text-muted); text-align: center;
+    margin-top: 4px; line-height: 1.4;
+  }
+
+  .card-body { display: flex; gap: 18px; align-items: flex-start; }
+  .card-icon {
+    flex: none; width: 76px; height: 76px; border-radius: 18px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 14%, var(--surface-1));
+    color: var(--item-color, var(--series-1));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card-icon svg { width: 46px; height: 46px; }
+  .card-main { flex: 1; min-width: 0; }
+  .table-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 7px; margin-right: 6px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 14%, var(--surface-1));
+    color: var(--item-color, var(--series-1)); vertical-align: middle;
+  }
+  .table-icon svg { width: 13px; height: 13px; }
+  .row-source-link { display: inline-flex; align-items: center; color: inherit; text-decoration: none; }
+  .row-source-link:hover { text-decoration: none; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+  .item-name {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+    padding: 4px 11px 4px 9px; border-radius: 999px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 16%, var(--surface-1));
+  }
+  .item-name .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--item-color, var(--series-1)); }
+  .item-name.plain { display: block; background: none; padding: 0; font-size: 14px; font-weight: 600; }
+  .item-name.plain .dot { display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .basis-tag { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+  .info-wrap { position: relative; display: inline-flex; margin-left: 4px; vertical-align: middle; }
+  .info-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 18px; padding: 0 8px; border-radius: 999px; white-space: nowrap;
+    background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+    color: var(--text-secondary); font-size: 10px; font-weight: 700; font-style: normal;
+    cursor: default;
+  }
+  .info-popup {
+    position: absolute; top: 22px; left: 0; z-index: 20;
+    width: 220px; padding: 10px 12px; border-radius: 10px;
+    background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; line-height: 1.6; font-weight: 400;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    opacity: 0; pointer-events: none; transform: translateY(-4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+  .info-wrap:hover .info-popup, .info-wrap:focus-within .info-popup { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .info-popup .info-row { display: flex; justify-content: space-between; gap: 10px; }
+  .info-popup .info-label { color: color-mix(in srgb, var(--surface-1) 60%, transparent); flex: none; }
+  .info-popup .info-krei {
+    display: block; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--surface-1) 22%, transparent);
+    color: color-mix(in srgb, var(--surface-1) 92%, var(--series-1) 8%);
+    cursor: pointer; font-weight: 600;
+  }
+  .info-popup .info-krei:hover { text-decoration: underline; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-critical { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 14%, transparent); }
+  /* 급락 = 블루 계열(원가 협의 여지, 긍정 톤) — 카드/배너 네온과 동일한 --series-1 사용 */
+  .badge-drop { color: var(--series-1); background: color-mix(in srgb, var(--series-1) 14%, transparent); }
+  .badge-normal { color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+  .badge-warning { color: #9a6b00; background: color-mix(in srgb, var(--status-warning) 22%, transparent); }
+
+  .yoy-light { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .yoy-light .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .yoy-ok { color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+  .yoy-ok .dot { background: var(--status-good); }
+  .yoy-warn { color: #9a6b00; background: color-mix(in srgb, var(--status-warning) 22%, transparent); }
+  .yoy-warn .dot { background: var(--status-warning); }
+  /* 전년比 급락도 동일하게 블루 계열로 통일 */
+  .yoy-crit { color: var(--series-1); background: color-mix(in srgb, var(--series-1) 16%, transparent); }
+  .yoy-crit .dot { background: var(--series-1); }
+  /* 전년比 급등 = 레드 계열(카드/배너 네온과 동일한 --status-critical 사용) */
+  .yoy-crit-up { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 16%, transparent); }
+  .yoy-crit-up .dot { background: var(--status-critical); }
+
+  .price-row { display: flex; align-items: baseline; gap: 7px; margin: 12px 0 3px; }
+  .price { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .unit { font-size: 12px; color: var(--text-muted); }
+
+  .chg-row { display: flex; gap: 14px; font-size: 13px; margin-bottom: 9px; }
+  .chg { font-variant-numeric: tabular-nums; }
+  .chg-label { color: var(--text-muted); margin-right: 3px; }
+  .chg-up { color: var(--status-critical); }
+  .chg-down { color: var(--status-good); }
+  .chg-flat { color: var(--text-secondary); }
+
+  svg.spark { width: 100%; height: 68px; display: block; margin-top: 8px; }
+  .spark-line { fill: none; stroke: var(--series-1); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; }
+  .spark-dot { fill: var(--series-1); }
+  .spark-area { fill: var(--series-1); opacity: 0.08; }
+  .spark-line-yoy { fill: none; stroke: var(--text-muted); stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 4 3; opacity: 0.75; }
+  .spark-legend { display: flex; gap: 12px; justify-content: center; margin-top: 5px; font-size: 10px; color: var(--text-muted); }
+  .spark-legend .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .spark-legend .legend-swatch { display: inline-block; width: 12px; height: 0; border-top: 2px solid var(--series-1); }
+  .spark-legend .legend-swatch.yoy { border-top: 2px dashed var(--text-muted); opacity: 0.85; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+    transform: translate(-50%, -130%); z-index: 10;
+  }
+
+  .season-callout {
+    display: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+  }
+  .season-callout.show { display: block; }
+  .season-callout-title { font-weight: 600; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  .season-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .season-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px 4px 4px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .season-chip .item-name { font-size: 12px; padding: 2px 9px 2px 7px; background: var(--surface-1); }
+  .season-chip.low { background: var(--surface-1); }
+  .season-chip.high { background: var(--surface-1); }
+  .season-chip.low .season-chip-text { color: var(--series-1); }
+  .season-chip.high .season-chip-text { color: var(--status-critical); }
+
+  .month-procure-callout {
+    display: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+  }
+  .month-procure-callout.show { display: block; }
+  .month-procure-callout-title { font-weight: 800; font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+  .month-procure-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .month-procure-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px 4px 4px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+  }
+  .month-procure-chip .item-name { font-size: 14px; padding: 2px 9px 2px 7px; }
+  .month-procure-chip-text { color: var(--tab-season); }
+
+  .watch-section {
+    /* 오른쪽 사이드바(.watch-sidebar)로 완전히 대체되어 화면 크기와 무관하게 항상 숨김. */
+    display: none;
+  }
+  .watch-section-empty { font-size: 12px; color: var(--text-muted); padding: 2px 0; }
+  /* 화면 크기와 무관하게 항상 본문 오른쪽에 세로형 즐겨찾기 목록을 배치한다. position:fixed 오버레이
+     대신 .page-flex의 실제 레이아웃 컬럼으로 만들어서, 헤더 등 다른 요소와 절대 겹치지 않고
+     본문과 같은 높이에서 시작하며 스크롤 시에는 상단에 붙어있도록(sticky) 한다. */
+  .watch-sidebar {
+    display: block; position: sticky; top: 24px; width: 230px; flex: none;
+    max-height: calc(100vh - 48px); overflow-y: auto;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-top: 32px;
+  }
+  .watch-sidebar-head { font-weight: 600; font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+  .watch-sidebar-empty { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .watch-sidebar-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .watch-sidebar-item:last-child { border-bottom: none; }
+  .watch-sidebar-name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; min-width: 0; max-width: 100%; }
+  .watch-sidebar-name .item-name {
+    font-size: 11px; padding: 2px 8px 2px 6px; max-width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .watch-sidebar-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .watch-sidebar-price { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .watch-sidebar-remove {
+    border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 14px;
+    padding: 2px 6px; border-radius: 6px; flex: none; line-height: 1;
+  }
+  .watch-sidebar-remove:hover { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 12%, transparent); }
+  .watch-section-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .watch-section-title { font-weight: 600; font-size: 12px; color: var(--text-secondary); }
+  .watch-section-hint { font-size: 11px; color: var(--text-muted); }
+  .watch-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .watch-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px 4px 4px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); cursor: pointer;
+    background: color-mix(in srgb, #f5a623 12%, var(--surface-1));
+  }
+  .watch-chip .item-name { font-size: 12px; padding: 2px 9px 2px 7px; }
+  .watch-chip-text { color: var(--text-secondary); }
+
+  .alarm-popup-section { margin-bottom: 16px; }
+  .alarm-popup-section:last-child { margin-bottom: 0; }
+  .alarm-popup-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+  .alarm-popup-empty { font-size: 12px; color: var(--text-muted); padding: 6px 0; }
+  .alarm-popup-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+    background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+    border-left: 3px solid transparent;
+  }
+  .alarm-popup-row:last-child { margin-bottom: 0; }
+  .alarm-popup-row.is-surge { border-left-color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 9%, transparent); }
+  .alarm-popup-row.is-drop { border-left-color: var(--series-1); background: color-mix(in srgb, var(--series-1) 9%, transparent); }
+  .alarm-popup-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  section.season-section { margin-top: 28px; }
+  .heatmap-wrap { overflow-x: auto; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  table.heatmap { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 11px; }
+  table.heatmap th { font-weight: 600; color: var(--text-secondary); padding: 6px 4px; text-align: center; }
+  table.heatmap th:first-child { text-align: left; padding-left: 6px; min-width: 88px; }
+  table.heatmap td { text-align: center; padding: 7px 4px; font-variant-numeric: tabular-nums; border-radius: 5px; }
+  table.heatmap td:first-child { text-align: left; padding-left: 6px; font-weight: 600; color: var(--text-primary); white-space: nowrap; background: transparent !important; }
+  table.heatmap th.cur-month { color: var(--text-primary); }
+  table.heatmap th.cur-month::after { content: ''; display: block; height: 2px; background: var(--text-primary); margin-top: 4px; border-radius: 2px; }
+  table.heatmap td.cur-month { box-shadow: inset 0 0 0 2px var(--text-primary); }
+  table.heatmap td.procure-m { position: relative; }
+  table.heatmap td.procure-m::after {
+    content: ''; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.8;
+  }
+  .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; }
+  .heatmap-scale { display: flex; height: 10px; width: 160px; border-radius: 5px; overflow: hidden; }
+  .heatmap-legend-dot { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); margin-right: 2px; vertical-align: middle; }
+
+  .procure-section { margin-top: 24px; }
+  .procure-cal-wrap {
+    overflow-x: auto; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .procure-cal {
+    display: grid; grid-template-columns: 148px repeat(12, minmax(40px, 1fr));
+    column-gap: 0; row-gap: 10px; align-items: center; min-width: 820px;
+  }
+  .procal-row { display: contents; }
+  .procal-label {
+    display: flex; align-items: center; gap: 6px; padding-right: 10px;
+    font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .procal-icon {
+    flex: none; width: 22px; height: 22px; border-radius: 7px;
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 16%, var(--surface-1));
+    color: var(--item-color, var(--series-1));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .procal-icon svg { width: 14px; height: 14px; }
+  .procal-month-h {
+    text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding-bottom: 6px;
+  }
+  .procal-month-h.cur { color: var(--text-primary); }
+  .procal-month-h.cur::after { content: ''; display: block; height: 2px; background: var(--text-primary); margin-top: 4px; border-radius: 2px; }
+  .procal-cell {
+    position: relative; height: 24px; margin: 0 1px;
+    background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+    border-radius: 6px;
+  }
+  .procal-cell.active {
+    background: color-mix(in srgb, var(--item-color, var(--series-1)) 55%, var(--surface-1));
+  }
+  .procal-cell.active.link-prev { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .procal-cell.active.link-next { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .procal-cell.active.link-next::after {
+    content: '›'; position: absolute; right: -1px; top: 50%; transform: translateY(-54%);
+    font-size: 13px; font-weight: 700; line-height: 1; color: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    z-index: 1; pointer-events: none;
+  }
+  .procal-cell.cur { box-shadow: inset 0 0 0 2px var(--text-primary); }
+  .procure-cal-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 12px; font-size: 11px; color: var(--text-muted); }
+  .procal-legend-swatch {
+    display: inline-block; width: 20px; height: 10px; border-radius: 3px; vertical-align: middle;
+    background: color-mix(in srgb, var(--series-1) 55%, var(--surface-1)); margin-right: 5px;
+  }
+
+  section.table-section { margin-top: 8px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--text-primary); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 13px; }
+  thead th { text-align: right; font-weight: 600; color: var(--text-secondary); padding: 10px 14px; border-bottom: 1px solid var(--gridline); font-size: 12px; }
+  thead th:first-child { text-align: left; }
+  tbody td { text-align: right; padding: 9px 14px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  tbody td:first-child { text-align: left; font-variant-numeric: normal; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--series-1) 6%, transparent); }
+  tbody tr.row-plunge td { border-top: 1.5px solid #38bdf8; border-bottom: 1.5px solid #38bdf8; }
+  tbody tr.row-plunge td:first-child { border-left: 1.5px solid #38bdf8; }
+  tbody tr.row-plunge td:last-child { border-right: 1.5px solid #38bdf8; }
+  tbody tr.row-surge td { border-top: 1.5px solid var(--status-critical); border-bottom: 1.5px solid var(--status-critical); }
+  tbody tr.row-surge td:first-child { border-left: 1.5px solid var(--status-critical); }
+  tbody tr.row-surge td:last-child { border-right: 1.5px solid var(--status-critical); }
+
+  footer { margin-top: 20px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+</style>
+<div class="viz-root"><div class="page-flex"><div class="wrap">
+
+  <header>
+    <div>
+      <h1>NH FOOD 원물 시세 대시보드</h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="meta" id="metaInfo"></div>
+      <button class="alarm-btn" id="alarmBtn" type="button" aria-label="가격 알림">🔔<span class="alarm-badge" id="alarmBadge" style="display:none;"></span></button>
+      <button class="theme-toggle" id="themeToggle">다크 모드</button>
+    </div>
+  </header>
+
+  <div class="tab-nav" id="tabNav">
+    <div class="tab-nav-tabs">
+      <button class="tab-btn active" data-tab="status" type="button"><span class="tab-dot"></span>원물 시세현황</button>
+      <button class="tab-btn" data-tab="season" type="button"><span class="tab-dot"></span>원물 수매 캘린더</button>
+      <button class="tab-btn" data-tab="issue" type="button"><span class="tab-dot"></span>원물 수매 이슈</button>
+      <button class="tab-btn" data-tab="hike" type="button"><span class="tab-dot"></span>식품업계 가격인상 동향</button>
+    </div>
+    <div class="item-search-wrap">
+      <svg class="item-search-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.6"/><line x1="13.6" y1="13.6" x2="18" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input type="search" id="itemSearch" class="item-search" placeholder="원물명 검색 (예: 배추)" autocomplete="off" />
+      <button type="button" class="item-search-clear" id="itemSearchClear" aria-label="검색어 지우기">×</button>
+    </div>
+  </div>
+
+  <div class="tab-panel active" id="tabPanel-status">
+    <div class="alert-banner" id="alertBanner"></div>
+
+    <div class="month-procure-callout" id="monthProcureCallout">
+      <div class="month-procure-callout-title" id="monthProcureTitle"></div>
+      <div class="month-procure-chip-row" id="monthProcureChips"></div>
+    </div>
+
+    <div class="watch-section" id="watchSection">
+      <div class="watch-section-head">
+        <span class="watch-section-title">⭐ 내 관심 품목</span>
+        <span class="watch-section-hint">품목 카드의 ☆ 아이콘으로 추가/삭제 · 이 브라우저에만 저장됩니다</span>
+      </div>
+      <div class="watch-chip-row" id="watchChips"></div>
+    </div>
+
+    <div class="grid" id="cardGrid"></div>
+    <div class="search-empty" id="searchEmpty">검색 결과가 없습니다.</div>
+
+    <section class="table-section">
+      <h2>전체 품목 상세</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>품목</th><th>기준</th><th>조사일</th><th>현재가</th><th>전주 대비</th><th>전월 대비</th><th>전년동기 대비</th><th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="tabPanel-season">
+    <div class="season-callout" id="seasonCallout">
+      <div class="season-callout-title">📅 다가오는 시즌 예고 (평년 기준)</div>
+      <div class="season-chip-row" id="seasonUpcoming"></div>
+    </div>
+
+    <section class="procure-section">
+      <h2>품목별 주요 수매(수확) 시기</h2>
+      <div class="procure-cal-wrap">
+        <div class="procure-cal" id="procureCal"></div>
+        <div class="procure-cal-legend">
+          <span class="procal-legend-swatch"></span>주요 수매(수확) 활성 월
+          <span style="margin-left:10px;">· 연속된 월은 하나로 이어 붙여 표시됩니다</span>
+          <span style="margin-left:10px;">· 굵은 테두리 = 이번 달</span>
+          <span style="margin-left:10px;">· 계란은 매일 생산되는 품목으로 특정 수매 시기가 없어 캘린더에서 제외했습니다</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="season-section">
+      <h2>계절 시세 캘린더 (평년 기준)</h2>
+      <div class="heatmap-wrap">
+        <table class="heatmap" id="seasonHeatmap"></table>
+        <div class="heatmap-legend">
+          <span>저가철</span>
+          <span class="heatmap-scale" style="background: linear-gradient(to right, var(--series-1), var(--surface-1), var(--status-critical));"></span>
+          <span>고가철</span>
+          <span style="margin-left:8px;">· 굵은 테두리 = 이번 달</span>
+          <span style="margin-left:8px;"><span class="heatmap-legend-dot"></span>= 주요 수매(수확) 시기</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="tabPanel-issue">
+    <div class="issue-note">
+      정리 기준일: <span id="newsAsOf"></span>
+    </div>
+    <div class="news-grid" id="newsGrid"></div>
+  </div>
+
+  <div class="tab-panel" id="tabPanel-hike">
+    <div class="issue-note">
+      정리 기준일: <span id="hikeAsOf"></span>
+    </div>
+    <div id="hikeGroups"></div>
+  </div>
+
+  <footer>
+    <button type="button" class="fsb" id="dataSourceBtn">📋 데이터 출처 및 판단 기준 보기</button>
+  </footer>
+
+</div>
+<div class="watch-sidebar" id="watchSidebar">
+  <div class="watch-sidebar-head">⭐ 내 관심 품목</div>
+  <div class="watch-sidebar-list" id="watchSidebarList"></div>
+</div>
+</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DATA = {"248": {"name": "고춧가루(소매)", "basis": "소매(도매data없음)", "unit": "kg1", "latest_date": "20260824", "latest_price": 37533.0, "day_chg_pct": 0.0, "week_chg_pct": 3.8, "alert": null, "points": [["20260427", 34300.0], ["20260428", 33478.0], ["20260429", 34556.0], ["20260430", 36078.0], ["20260504", 36078.0], ["20260506", 36078.0], ["20260507", 35700.0], ["20260508", 35700.0], ["20260511", 35700.0], ["20260512", 35700.0], ["20260513", 36033.0], ["20260514", 36033.0], ["20260515", 36033.0], ["20260518", 36033.0], ["20260519", 36033.0], ["20260520", 36033.0], ["20260521", 36422.0], ["20260522", 36422.0], ["20260526", 36422.0], ["20260527", 36422.0], ["20260528", 36033.0], ["20260529", 36033.0], ["20260601", 36033.0], ["20260602", 36033.0], ["20260604", 36089.0], ["20260605", 36089.0], ["20260608", 36089.0], ["20260609", 36089.0], ["20260610", 36089.0], ["20260611", 36478.0], ["20260612", 36478.0], ["20260615", 36478.0], ["20260616", 36478.0], ["20260617", 36478.0], ["20260618", 36811.0], ["20260619", 36811.0], ["20260622", 36811.0], ["20260623", 36811.0], ["20260624", 36811.0], ["20260625", 36422.0], ["20260626", 36422.0], ["20260629", 36422.0], ["20260630", 36422.0], ["20260701", 36422.0], ["20260702", 36422.0], ["20260703", 36422.0], ["20260706", 36200.0], ["20260707", 36200.0], ["20260708", 36200.0], ["20260709", 34656.0], ["20260710", 34922.0], ["20260713", 34811.0], ["20260714", 34811.0], ["20260715", 34811.0], ["20260716", 36813.0], ["20260720", 36813.0], ["20260721", 36711.0], ["20260722", 36044.0], ["20260723", 36044.0], ["20260724", 36044.0], ["20260727", 36044.0], ["20260728", 36044.0], ["20260729", 37156.0], ["20260730", 37289.0], ["20260731", 37289.0], ["20260803", 37289.0], ["20260804", 37267.0], ["20260805", 37267.0], ["20260806", 37267.0], ["20260807", 37267.0], ["20260810", 37267.0], ["20260811", 37267.0], ["20260812", 36156.0], ["20260813", 36156.0], ["20260814", 36156.0], ["20260818", 36156.0], ["20260819", 37333.0], ["20260820", 37478.0], ["20260821", 37533.0], ["20260824", 37533.0]], "yoy_date": "20250825", "yoy_price": 34833.0, "yoy_chg_pct": 7.8, "source_url": "https://www.kamis.or.kr/customer/price/retail/item.do?itemcategorycode=200&itemcode=248&kindcode=00&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -2.8, "2": 1.7, "3": 0.1, "4": -1.1, "5": 1.2, "6": 2.6, "7": 4.3, "8": 4.4, "9": 4.3, "10": 2.3, "11": -8.7, "12": -8.4}, "season_low_months": [11, 12], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 26900.0, "detail_max_price": 49500.0, "detail_variety": "국산", "detail_grade": "상품", "detail_market": "서울", "detail_category": "채소류", "detail_basis_name": "소매", "detail_survey_count": 1, "krei_url": "https://aglook.krei.re.kr/main/uObserveMonth/OVR0000000036", "krei_label": "KREI 양념채소(건고추) 관측월보", "yoy_points": [["20250428", 34144.0], ["20250429", 34144.0], ["20250430", 34144.0], ["20250502", 34422.0], ["20250507", 34422.0], ["20250508", 34422.0], ["20250509", 34422.0], ["20250512", 34422.0], ["20250513", 34422.0], ["20250514", 34422.0], ["20250515", 34767.0], ["20250516", 34767.0], ["20250519", 34767.0], ["20250520", 34767.0], ["20250521", 34767.0], ["20250522", 34767.0], ["20250523", 34767.0], ["20250526", 34767.0], ["20250527", 34767.0], ["20250528", 34767.0], ["20250529", 34767.0], ["20250530", 34767.0], ["20250602", 34767.0], ["20250604", 34767.0], ["20250605", 35100.0], ["20250609", 35100.0], ["20250610", 35100.0], ["20250611", 35100.0], ["20250612", 35378.0], ["20250613", 33756.0], ["20250616", 33756.0], ["20250617", 33756.0], ["20250618", 33756.0], ["20250619", 33756.0], ["20250620", 33756.0], ["20250623", 33756.0], ["20250624", 33756.0], ["20250625", 33756.0], ["20250626", 33756.0], ["20250627", 33756.0], ["20250630", 33756.0], ["20250701", 33756.0], ["20250702", 33756.0], ["20250703", 33756.0], ["20250704", 35089.0], ["20250707", 35089.0], ["20250708", 35089.0], ["20250709", 35089.0], ["20250710", 35378.0], ["20250711", 35378.0], ["20250714", 35378.0], ["20250715", 34978.0], ["20250716", 34978.0], ["20250717", 34978.0], ["20250718", 34978.0], ["20250721", 34811.0], ["20250722", 34811.0], ["20250723", 35600.0], ["20250724", 35567.0], ["20250725", 35567.0], ["20250728", 35567.0], ["20250729", 35567.0], ["20250730", 35567.0], ["20250731", 35811.0], ["20250801", 35811.0], ["20250804", 35811.0], ["20250805", 35811.0], ["20250806", 35811.0], ["20250807", 35811.0], ["20250808", 35811.0], ["20250811", 35811.0], ["20250812", 35811.0], ["20250813", 35322.0], ["20250814", 34589.0], ["20250818", 34589.0], ["20250819", 34589.0], ["20250820", 34589.0], ["20250821", 34589.0], ["20250822", 34833.0], ["20250825", 34833.0]], "month_chg_pct": 4.1}, "211": {"name": "배추", "basis": "중도매", "unit": "kg(그물망 3포기)10", "latest_date": "20260824", "latest_price": 13400.0, "day_chg_pct": 0.0, "week_chg_pct": -1.5, "alert": null, "points": [["20260427", 12200.0], ["20260428", 12200.0], ["20260429", 12200.0], ["20260430", 12200.0], ["20260504", 12200.0], ["20260506", 12800.0], ["20260507", 12200.0], ["20260508", 8600.0], ["20260511", 8600.0], ["20260512", 8500.0], ["20260513", 8500.0], ["20260514", 8500.0], ["20260515", 8500.0], ["20260518", 8500.0], ["20260519", 8450.0], ["20260520", 8900.0], ["20260521", 8900.0], ["20260522", 8900.0], ["20260526", 11400.0], ["20260527", 11400.0], ["20260528", 8200.0], ["20260529", 8200.0], ["20260601", 8200.0], ["20260602", 8200.0], ["20260604", 9000.0], ["20260605", 9000.0], ["20260608", 9000.0], ["20260609", 9000.0], ["20260610", 8600.0], ["20260611", 8400.0], ["20260612", 8400.0], ["20260615", 8600.0], ["20260616", 8600.0], ["20260617", 8600.0], ["20260618", 8600.0], ["20260619", 8600.0], ["20260622", 8600.0], ["20260623", 8600.0], ["20260624", 8600.0], ["20260625", 8600.0], ["20260626", 8600.0], ["20260629", 8400.0], ["20260630", 8400.0], ["20260701", 8400.0], ["20260702", 8400.0], ["20260703", 8400.0], ["20260706", 8400.0], ["20260707", 8800.0], ["20260708", 8800.0], ["20260709", 8800.0], ["20260710", 9200.0], ["20260713", 9200.0], ["20260714", 9200.0], ["20260715", 9425.0], ["20260716", 10400.0], ["20260720", 10400.0], ["20260721", 10400.0], ["20260722", 10400.0], ["20260723", 10600.0], ["20260724", 10800.0], ["20260727", 10800.0], ["20260728", 12000.0], ["20260729", 12000.0], ["20260730", 12000.0], ["20260731", 12000.0], ["20260803", 12800.0], ["20260804", 12800.0], ["20260805", 12800.0], ["20260806", 12800.0], ["20260807", 13200.0], ["20260810", 13200.0], ["20260811", 13200.0], ["20260812", 13200.0], ["20260813", 13200.0], ["20260814", 13600.0], ["20260818", 13600.0], ["20260819", 13600.0], ["20260820", 13400.0], ["20260821", 13400.0], ["20260824", 13400.0]], "yoy_date": "20250825", "yoy_price": 18800.0, "yoy_chg_pct": -28.7, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=200&itemcode=211&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -41.2, "2": -26.8, "3": -12.3, "4": 3.0, "5": -16.8, "6": -27.7, "7": -4.2, "8": 58.3, "9": 97.8, "10": 16.8, "11": -20.6, "12": -26.4}, "season_low_months": [1, 6, 2, 12, 11, 5, 3], "season_high_months": [9, 8, 10], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 13600.0, "detail_max_price": 13600.0, "detail_variety": "여름(고랭지)", "detail_grade": "상품", "detail_market": "서울", "detail_category": "채소류", "detail_basis_name": "중도매", "detail_survey_count": 1, "krei_url": "https://aglook.krei.re.kr/main/uObserveMonth/OVR0000000008", "krei_label": "KREI 엽근채소(배추) 관측월보", "yoy_points": [["20250428", 15600.0], ["20250429", 14000.0], ["20250430", 13000.0], ["20250502", 11000.0], ["20250507", 11600.0], ["20250508", 11500.0], ["20250509", 11000.0], ["20250512", 11700.0], ["20250513", 11800.0], ["20250514", 11900.0], ["20250515", 12200.0], ["20250516", 12100.0], ["20250519", 12750.0], ["20250520", 13350.0], ["20250521", 14100.0], ["20250522", 8000.0], ["20250523", 8400.0], ["20250526", 8600.0], ["20250527", 8800.0], ["20250528", 8800.0], ["20250529", 8800.0], ["20250530", 9200.0], ["20250602", 9200.0], ["20250604", 11800.0], ["20250605", 11600.0], ["20250609", 10600.0], ["20250610", 8800.0], ["20250611", 8400.0], ["20250612", 10000.0], ["20250613", 10000.0], ["20250616", 8200.0], ["20250617", 9200.0], ["20250618", 10100.0], ["20250619", 9800.0], ["20250620", 10400.0], ["20250623", 8400.0], ["20250624", 8400.0], ["20250625", 8400.0], ["20250626", 9600.0], ["20250627", 8400.0], ["20250630", 9600.0], ["20250701", 9600.0], ["20250702", 9600.0], ["20250703", 9400.0], ["20250704", 9400.0], ["20250707", 12000.0], ["20250708", 11400.0], ["20250709", 11400.0], ["20250710", 11600.0], ["20250711", 14000.0], ["20250714", 14600.0], ["20250715", 14400.0], ["20250716", 15000.0], ["20250717", 15200.0], ["20250718", 16250.0], ["20250721", 14000.0], ["20250722", 12800.0], ["20250723", 14200.0], ["20250724", 14200.0], ["20250725", 14200.0], ["20250728", 14200.0], ["20250729", 15400.0], ["20250730", 18000.0], ["20250731", 17800.0], ["20250801", 19200.0], ["20250804", 21000.0], ["20250805", 23400.0], ["20250806", 24200.0], ["20250807", 21600.0], ["20250808", 23400.0], ["20250811", 21600.0], ["20250812", 18000.0], ["20250813", 19600.0], ["20250814", 22400.0], ["20250818", 20400.0], ["20250819", 18000.0], ["20250820", 19600.0], ["20250821", 19200.0], ["20250822", 19200.0], ["20250825", 18800.0]], "month_chg_pct": 24.1}, "151": {"name": "고구마", "basis": "중도매", "unit": "kg10", "latest_date": "20260824", "latest_price": 36000.0, "day_chg_pct": 0.0, "week_chg_pct": 2.9, "alert": null, "points": [["20260427", 31000.0], ["20260428", 31000.0], ["20260429", 32300.0], ["20260430", 32300.0], ["20260504", 32300.0], ["20260506", 32300.0], ["20260507", 32300.0], ["20260508", 32300.0], ["20260511", 32300.0], ["20260512", 32300.0], ["20260513", 32300.0], ["20260514", 32300.0], ["20260515", 32300.0], ["20260518", 32300.0], ["20260519", 32300.0], ["20260520", 34000.0], ["20260521", 34000.0], ["20260522", 38600.0], ["20260526", 38600.0], ["20260527", 38600.0], ["20260528", 38600.0], ["20260529", 38600.0], ["20260601", 38600.0], ["20260602", 38600.0], ["20260604", 39300.0], ["20260605", 39300.0], ["20260608", 39300.0], ["20260609", 38600.0], ["20260610", 38600.0], ["20260611", 38600.0], ["20260612", 38600.0], ["20260615", 38600.0], ["20260616", 38600.0], ["20260617", 38600.0], ["20260618", 38600.0], ["20260619", 38600.0], ["20260622", 38600.0], ["20260623", 38600.0], ["20260624", 38600.0], ["20260625", 38600.0], ["20260626", 38600.0], ["20260629", 38600.0], ["20260630", 38600.0], ["20260701", 38600.0], ["20260702", 38600.0], ["20260703", 38600.0], ["20260706", 38600.0], ["20260707", 38600.0], ["20260708", 38600.0], ["20260709", 38600.0], ["20260710", 38600.0], ["20260713", 38600.0], ["20260714", 38600.0], ["20260715", 38600.0], ["20260716", 35000.0], ["20260720", 35000.0], ["20260721", 35000.0], ["20260722", 35000.0], ["20260723", 35000.0], ["20260724", 35000.0], ["20260727", 35000.0], ["20260728", 35000.0], ["20260729", 35000.0], ["20260730", 35000.0], ["20260731", 35000.0], ["20260803", 35000.0], ["20260804", 35000.0], ["20260805", 35000.0], ["20260806", 35000.0], ["20260807", 35000.0], ["20260810", 35000.0], ["20260811", 35000.0], ["20260812", 35000.0], ["20260813", 35000.0], ["20260814", 35000.0], ["20260818", 36000.0], ["20260819", 36000.0], ["20260820", 36000.0], ["20260821", 36000.0], ["20260824", 36000.0]], "yoy_date": "20250825", "yoy_price": 35600.0, "yoy_chg_pct": 1.1, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=100&itemcode=151&kindcode=00&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -0.9, "2": 8.8, "3": 4.3, "4": 2.4, "5": 5.9, "6": 10.2, "7": -5.2, "8": 1.9, "9": -5.5, "10": -11.6, "11": -9.0, "12": -1.4}, "season_low_months": [10, 11], "season_high_months": [6, 2], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 36000.0, "detail_max_price": 36000.0, "detail_variety": "밤", "detail_grade": "상품", "detail_market": "서울", "detail_category": "식량작물", "detail_basis_name": "중도매", "detail_survey_count": 1, "yoy_points": [["20250428", 32000.0], ["20250429", 33600.0], ["20250430", 34000.0], ["20250502", 34000.0], ["20250507", 31000.0], ["20250508", 31000.0], ["20250509", 31000.0], ["20250512", 31000.0], ["20250513", 30600.0], ["20250514", 31300.0], ["20250515", 34300.0], ["20250516", 31000.0], ["20250519", 29000.0], ["20250520", 30300.0], ["20250521", 29000.0], ["20250522", 28300.0], ["20250523", 30600.0], ["20250526", 36300.0], ["20250527", 39000.0], ["20250528", 39000.0], ["20250529", 35300.0], ["20250530", 33000.0], ["20250602", 33000.0], ["20250604", 34300.0], ["20250605", 34600.0], ["20250609", 35600.0], ["20250610", 35600.0], ["20250611", 35300.0], ["20250612", 35300.0], ["20250613", 35300.0], ["20250616", 35300.0], ["20250617", 37600.0], ["20250618", 39000.0], ["20250619", 39000.0], ["20250620", 35300.0], ["20250623", 36300.0], ["20250624", 35600.0], ["20250625", 35600.0], ["20250626", 36300.0], ["20250627", 35600.0], ["20250630", 33600.0], ["20250701", 32600.0], ["20250702", 29600.0], ["20250703", 30000.0], ["20250704", 30000.0], ["20250707", 29300.0], ["20250708", 26600.0], ["20250709", 25600.0], ["20250710", 25000.0], ["20250711", 24000.0], ["20250714", 26300.0], ["20250715", 26300.0], ["20250716", 28600.0], ["20250717", 28600.0], ["20250718", 31000.0], ["20250721", 33600.0], ["20250722", 34300.0], ["20250723", 35000.0], ["20250724", 31600.0], ["20250725", 34300.0], ["20250728", 34600.0], ["20250729", 33300.0], ["20250730", 33600.0], ["20250731", 34600.0], ["20250801", 36500.0], ["20250804", 38300.0], ["20250805", 39300.0], ["20250806", 40600.0], ["20250807", 41300.0], ["20250808", 42300.0], ["20250811", 41000.0], ["20250812", 38000.0], ["20250813", 40300.0], ["20250814", 39600.0], ["20250818", 41000.0], ["20250819", 39300.0], ["20250820", 37300.0], ["20250821", 35300.0], ["20250822", 35300.0], ["20250825", 35600.0]], "month_chg_pct": 2.9}, "312": {"name": "참깨", "basis": "중도매", "unit": "kg30", "latest_date": "20260824", "latest_price": 773000.0, "day_chg_pct": 0.0, "week_chg_pct": 0.0, "alert": null, "points": [["20260427", 783000.0], ["20260428", 783000.0], ["20260429", 783000.0], ["20260430", 783000.0], ["20260504", 783000.0], ["20260506", 783000.0], ["20260507", 783000.0], ["20260508", 783000.0], ["20260511", 783000.0], ["20260512", 773000.0], ["20260513", 773000.0], ["20260514", 773000.0], ["20260515", 773000.0], ["20260518", 773000.0], ["20260519", 773000.0], ["20260520", 773000.0], ["20260521", 773000.0], ["20260522", 773000.0], ["20260526", 773000.0], ["20260527", 773000.0], ["20260528", 773000.0], ["20260529", 773000.0], ["20260601", 773000.0], ["20260602", 773000.0], ["20260604", 773000.0], ["20260605", 773000.0], ["20260608", 773000.0], ["20260609", 773000.0], ["20260610", 773000.0], ["20260611", 773000.0], ["20260612", 773000.0], ["20260615", 773000.0], ["20260616", 773000.0], ["20260617", 773000.0], ["20260618", 773000.0], ["20260619", 773000.0], ["20260622", 773000.0], ["20260623", 773000.0], ["20260624", 773000.0], ["20260625", 773000.0], ["20260626", 773000.0], ["20260629", 773000.0], ["20260630", 773000.0], ["20260701", 773000.0], ["20260702", 773000.0], ["20260703", 773000.0], ["20260706", 773000.0], ["20260707", 773000.0], ["20260708", 773000.0], ["20260709", 773000.0], ["20260710", 773000.0], ["20260713", 773000.0], ["20260714", 773000.0], ["20260715", 773000.0], ["20260716", 773000.0], ["20260720", 773000.0], ["20260721", 773000.0], ["20260722", 773000.0], ["20260723", 773000.0], ["20260724", 773000.0], ["20260727", 773000.0], ["20260728", 773000.0], ["20260729", 773000.0], ["20260730", 773000.0], ["20260731", 773000.0], ["20260803", 773000.0], ["20260804", 773000.0], ["20260805", 773000.0], ["20260806", 773000.0], ["20260807", 773000.0], ["20260810", 773000.0], ["20260811", 773000.0], ["20260812", 773000.0], ["20260813", 773000.0], ["20260814", 773000.0], ["20260818", 773000.0], ["20260819", 773000.0], ["20260820", 773000.0], ["20260821", 773000.0], ["20260824", 773000.0]], "yoy_date": "20250825", "yoy_price": 820000.0, "yoy_chg_pct": -5.7, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=300&itemcode=312&kindcode=01&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": 1.6, "2": 1.9, "3": 1.9, "4": 1.5, "5": 1.2, "6": 1.5, "7": 2.4, "8": 0.1, "9": -3.7, "10": -6.1, "11": -2.6, "12": 0.3}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 773000.0, "detail_max_price": 773000.0, "detail_variety": "백색(국산)", "detail_grade": "상품", "detail_market": "서울", "detail_category": "특용작물", "detail_basis_name": "중도매", "detail_survey_count": 1, "yoy_points": [["20250428", 806000.0], ["20250429", 806000.0], ["20250430", 806000.0], ["20250502", 806000.0], ["20250507", 800000.0], ["20250508", 800000.0], ["20250509", 800000.0], ["20250512", 800000.0], ["20250513", 800000.0], ["20250514", 800000.0], ["20250515", 800000.0], ["20250516", 800000.0], ["20250519", 800000.0], ["20250520", 800000.0], ["20250521", 800000.0], ["20250522", 800000.0], ["20250523", 800000.0], ["20250526", 800000.0], ["20250527", 800000.0], ["20250528", 800000.0], ["20250529", 800000.0], ["20250530", 800000.0], ["20250602", 800000.0], ["20250604", 800000.0], ["20250605", 800000.0], ["20250609", 800000.0], ["20250610", 800000.0], ["20250611", 800000.0], ["20250612", 800000.0], ["20250613", 800000.0], ["20250616", 800000.0], ["20250617", 800000.0], ["20250618", 800000.0], ["20250619", 800000.0], ["20250620", 800000.0], ["20250623", 820000.0], ["20250624", 820000.0], ["20250625", 820000.0], ["20250626", 820000.0], ["20250627", 820000.0], ["20250630", 820000.0], ["20250701", 820000.0], ["20250702", 820000.0], ["20250703", 820000.0], ["20250704", 820000.0], ["20250707", 820000.0], ["20250708", 820000.0], ["20250709", 820000.0], ["20250710", 820000.0], ["20250711", 820000.0], ["20250714", 820000.0], ["20250715", 820000.0], ["20250716", 820000.0], ["20250717", 820000.0], ["20250718", 820000.0], ["20250721", 820000.0], ["20250722", 820000.0], ["20250723", 820000.0], ["20250724", 820000.0], ["20250725", 820000.0], ["20250728", 820000.0], ["20250729", 820000.0], ["20250730", 820000.0], ["20250731", 820000.0], ["20250801", 820000.0], ["20250804", 820000.0], ["20250805", 820000.0], ["20250806", 820000.0], ["20250807", 820000.0], ["20250808", 820000.0], ["20250811", 820000.0], ["20250812", 820000.0], ["20250813", 820000.0], ["20250814", 820000.0], ["20250818", 820000.0], ["20250819", 820000.0], ["20250820", 820000.0], ["20250821", 820000.0], ["20250822", 820000.0], ["20250825", 820000.0]], "month_chg_pct": 0.0}, "313": {"name": "들깨", "basis": "중도매", "unit": "kg23", "latest_date": "20260824", "latest_price": 374000.0, "day_chg_pct": 0.0, "week_chg_pct": 0.0, "alert": null, "points": [["20260427", 380000.0], ["20260428", 380000.0], ["20260429", 380000.0], ["20260430", 380000.0], ["20260504", 380000.0], ["20260506", 380000.0], ["20260507", 380000.0], ["20260508", 380000.0], ["20260511", 380000.0], ["20260512", 370000.0], ["20260513", 370000.0], ["20260514", 370000.0], ["20260515", 370000.0], ["20260518", 370000.0], ["20260519", 370000.0], ["20260520", 370000.0], ["20260521", 370000.0], ["20260522", 370000.0], ["20260526", 370000.0], ["20260527", 370000.0], ["20260528", 370000.0], ["20260529", 370000.0], ["20260601", 370000.0], ["20260602", 370000.0], ["20260604", 370000.0], ["20260605", 370000.0], ["20260608", 370000.0], ["20260609", 370000.0], ["20260610", 370000.0], ["20260611", 370000.0], ["20260612", 370000.0], ["20260615", 370000.0], ["20260616", 374000.0], ["20260617", 374000.0], ["20260618", 374000.0], ["20260619", 374000.0], ["20260622", 374000.0], ["20260623", 374000.0], ["20260624", 374000.0], ["20260625", 374000.0], ["20260626", 374000.0], ["20260629", 374000.0], ["20260630", 374000.0], ["20260701", 374000.0], ["20260702", 374000.0], ["20260703", 374000.0], ["20260706", 374000.0], ["20260707", 374000.0], ["20260708", 374000.0], ["20260709", 374000.0], ["20260710", 374000.0], ["20260713", 374000.0], ["20260714", 374000.0], ["20260715", 374000.0], ["20260716", 374000.0], ["20260720", 374000.0], ["20260721", 374000.0], ["20260722", 374000.0], ["20260723", 374000.0], ["20260724", 374000.0], ["20260727", 374000.0], ["20260728", 374000.0], ["20260729", 374000.0], ["20260730", 374000.0], ["20260731", 374000.0], ["20260803", 374000.0], ["20260804", 374000.0], ["20260805", 374000.0], ["20260806", 374000.0], ["20260807", 374000.0], ["20260810", 374000.0], ["20260811", 374000.0], ["20260812", 374000.0], ["20260813", 374000.0], ["20260814", 374000.0], ["20260818", 374000.0], ["20260819", 374000.0], ["20260820", 374000.0], ["20260821", 374000.0], ["20260824", 374000.0]], "yoy_date": "20250825", "yoy_price": 325000.0, "yoy_chg_pct": 15.1, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=300&itemcode=313&kindcode=01&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -1.6, "2": -1.6, "3": -0.4, "4": -1.3, "5": 0.4, "6": -0.2, "7": -0.3, "8": 0.6, "9": 1.8, "10": 0.8, "11": 0.6, "12": 1.3}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 374000.0, "detail_max_price": 374000.0, "detail_variety": "국산", "detail_grade": "상품", "detail_market": "서울", "detail_category": "특용작물", "detail_basis_name": "중도매", "detail_survey_count": 1, "yoy_points": [["20250428", 287000.0], ["20250429", 287000.0], ["20250430", 287000.0], ["20250502", 287000.0], ["20250507", 326000.0], ["20250508", 326000.0], ["20250509", 326000.0], ["20250512", 326000.0], ["20250513", 326000.0], ["20250514", 326000.0], ["20250515", 326000.0], ["20250516", 326000.0], ["20250519", 326000.0], ["20250520", 326000.0], ["20250521", 326000.0], ["20250522", 326000.0], ["20250523", 326000.0], ["20250526", 326000.0], ["20250527", 326000.0], ["20250528", 326000.0], ["20250529", 326000.0], ["20250530", 326000.0], ["20250602", 326000.0], ["20250604", 326000.0], ["20250605", 326000.0], ["20250609", 326000.0], ["20250610", 326000.0], ["20250611", 326000.0], ["20250612", 326000.0], ["20250613", 326000.0], ["20250616", 326000.0], ["20250617", 326000.0], ["20250618", 326000.0], ["20250619", 326000.0], ["20250620", 326000.0], ["20250623", 325000.0], ["20250624", 325000.0], ["20250625", 325000.0], ["20250626", 325000.0], ["20250627", 325000.0], ["20250630", 325000.0], ["20250701", 325000.0], ["20250702", 325000.0], ["20250703", 325000.0], ["20250704", 325000.0], ["20250707", 325000.0], ["20250708", 325000.0], ["20250709", 325000.0], ["20250710", 325000.0], ["20250711", 325000.0], ["20250714", 325000.0], ["20250715", 325000.0], ["20250716", 325000.0], ["20250717", 325000.0], ["20250718", 325000.0], ["20250721", 325000.0], ["20250722", 325000.0], ["20250723", 325000.0], ["20250724", 325000.0], ["20250725", 325000.0], ["20250728", 325000.0], ["20250729", 325000.0], ["20250730", 325000.0], ["20250731", 325000.0], ["20250801", 325000.0], ["20250804", 325000.0], ["20250805", 325000.0], ["20250806", 325000.0], ["20250807", 325000.0], ["20250808", 325000.0], ["20250811", 325000.0], ["20250812", 325000.0], ["20250813", 325000.0], ["20250814", 325000.0], ["20250818", 325000.0], ["20250819", 325000.0], ["20250820", 325000.0], ["20250821", 325000.0], ["20250822", 325000.0], ["20250825", 325000.0]], "month_chg_pct": 0.0}, "141": {"name": "콩(백태/대립종)", "basis": "중도매", "unit": "kg40", "latest_date": "20260824", "latest_price": 225000.0, "day_chg_pct": 0.0, "week_chg_pct": 0.0, "alert": null, "points": [["20260427", 225000.0], ["20260428", 225000.0], ["20260429", 225000.0], ["20260430", 225000.0], ["20260504", 225000.0], ["20260506", 225000.0], ["20260507", 225000.0], ["20260508", 225000.0], ["20260511", 225000.0], ["20260512", 225000.0], ["20260513", 225000.0], ["20260514", 225000.0], ["20260515", 225000.0], ["20260518", 225000.0], ["20260519", 225000.0], ["20260520", 225000.0], ["20260521", 225000.0], ["20260522", 225000.0], ["20260526", 225000.0], ["20260527", 225000.0], ["20260528", 225000.0], ["20260529", 225000.0], ["20260601", 225000.0], ["20260602", 225000.0], ["20260604", 225000.0], ["20260605", 225000.0], ["20260608", 225000.0], ["20260609", 225000.0], ["20260610", 225000.0], ["20260611", 225000.0], ["20260612", 225000.0], ["20260615", 225000.0], ["20260616", 225000.0], ["20260617", 225000.0], ["20260618", 225000.0], ["20260619", 225000.0], ["20260622", 225000.0], ["20260623", 225000.0], ["20260624", 225000.0], ["20260625", 225000.0], ["20260626", 225000.0], ["20260629", 225000.0], ["20260630", 225000.0], ["20260701", 225000.0], ["20260702", 225000.0], ["20260703", 225000.0], ["20260706", 225000.0], ["20260707", 225000.0], ["20260708", 225000.0], ["20260709", 225000.0], ["20260710", 225000.0], ["20260713", 225000.0], ["20260714", 225000.0], ["20260715", 225000.0], ["20260716", 225000.0], ["20260720", 225000.0], ["20260721", 225000.0], ["20260722", 225000.0], ["20260723", 225000.0], ["20260724", 225000.0], ["20260727", 225000.0], ["20260728", 225000.0], ["20260729", 225000.0], ["20260730", 225000.0], ["20260731", 225000.0], ["20260803", 225000.0], ["20260804", 225000.0], ["20260805", 225000.0], ["20260806", 225000.0], ["20260807", 225000.0], ["20260810", 225000.0], ["20260811", 225000.0], ["20260812", 225000.0], ["20260813", 225000.0], ["20260814", 225000.0], ["20260818", 225000.0], ["20260819", 225000.0], ["20260820", 225000.0], ["20260821", 225000.0], ["20260824", 225000.0]], "yoy_date": "20250825", "yoy_price": 232000.0, "yoy_chg_pct": -3.0, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=100&itemcode=141&kindcode=01&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -0.8, "2": -1.1, "3": -1.1, "4": -0.9, "5": 0.1, "6": 0.5, "7": 0.8, "8": 1.1, "9": 0.7, "10": 1.9, "11": -0.3, "12": -0.9}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 225000.0, "detail_max_price": 225000.0, "detail_variety": "흰 콩(국산)", "detail_grade": "상품", "detail_market": "서울", "detail_category": "식량작물", "detail_basis_name": "중도매", "detail_survey_count": 1, "krei_url": "https://aglook.krei.re.kr/main/uObserveMonth/OVR0000000072", "krei_label": "KREI 콩 관측월보", "yoy_points": [["20250428", 227000.0], ["20250429", 227000.0], ["20250430", 227000.0], ["20250502", 227000.0], ["20250507", 227000.0], ["20250508", 227000.0], ["20250509", 227000.0], ["20250512", 227000.0], ["20250513", 227000.0], ["20250514", 227000.0], ["20250515", 227000.0], ["20250516", 227000.0], ["20250519", 227000.0], ["20250520", 227000.0], ["20250521", 227000.0], ["20250522", 227000.0], ["20250523", 227000.0], ["20250526", 227000.0], ["20250527", 227000.0], ["20250528", 227000.0], ["20250529", 227000.0], ["20250530", 227000.0], ["20250602", 227000.0], ["20250604", 227000.0], ["20250605", 227000.0], ["20250609", 227000.0], ["20250610", 227000.0], ["20250611", 227000.0], ["20250612", 227000.0], ["20250613", 227000.0], ["20250616", 227000.0], ["20250617", 227000.0], ["20250618", 227000.0], ["20250619", 227000.0], ["20250620", 227000.0], ["20250623", 230000.0], ["20250624", 230000.0], ["20250625", 230000.0], ["20250626", 230000.0], ["20250627", 230000.0], ["20250630", 230000.0], ["20250701", 230000.0], ["20250702", 230000.0], ["20250703", 230000.0], ["20250704", 230000.0], ["20250707", 230000.0], ["20250708", 230000.0], ["20250709", 230000.0], ["20250710", 230000.0], ["20250711", 230000.0], ["20250714", 230000.0], ["20250715", 230000.0], ["20250716", 230000.0], ["20250717", 230000.0], ["20250718", 230000.0], ["20250721", 230000.0], ["20250722", 230000.0], ["20250723", 230000.0], ["20250724", 230000.0], ["20250725", 230000.0], ["20250728", 230000.0], ["20250729", 230000.0], ["20250730", 230000.0], ["20250731", 230000.0], ["20250801", 230000.0], ["20250804", 230000.0], ["20250805", 230000.0], ["20250806", 232000.0], ["20250807", 232000.0], ["20250808", 232000.0], ["20250811", 232000.0], ["20250812", 232000.0], ["20250813", 232000.0], ["20250814", 232000.0], ["20250818", 232000.0], ["20250819", 232000.0], ["20250820", 232000.0], ["20250821", 232000.0], ["20250822", 232000.0], ["20250825", 232000.0]], "month_chg_pct": 0.0}, "9903": {"name": "계란", "basis": "소매(도매data없음)", "unit": "구10", "latest_date": "20260824", "latest_price": 4549.0, "day_chg_pct": 0.5, "week_chg_pct": 4.7, "alert": null, "points": [["20260527", 4555.0], ["20260528", 5449.0], ["20260529", 5306.0], ["20260530", 5306.0], ["20260531", 5306.0], ["20260601", 5306.0], ["20260602", 5306.0], ["20260603", 5306.0], ["20260604", 5306.0], ["20260605", 5648.0], ["20260606", 5648.0], ["20260607", 5648.0], ["20260608", 5648.0], ["20260609", 5648.0], ["20260610", 5648.0], ["20260611", 5648.0], ["20260612", 5648.0], ["20260613", 5648.0], ["20260614", 5648.0], ["20260615", 5648.0], ["20260616", 5648.0], ["20260617", 5648.0], ["20260618", 5648.0], ["20260619", 5794.0], ["20260620", 5794.0], ["20260621", 5794.0], ["20260622", 5794.0], ["20260623", 5794.0], ["20260624", 5794.0], ["20260625", 5794.0], ["20260626", 5696.0], ["20260627", 5696.0], ["20260628", 4945.0], ["20260629", 4945.0], ["20260630", 4945.0], ["20260701", 4945.0], ["20260702", 4945.0], ["20260703", 4945.0], ["20260704", 4945.0], ["20260705", 4945.0], ["20260706", 4945.0], ["20260707", 4945.0], ["20260708", 4945.0], ["20260709", 4945.0], ["20260710", 4389.0], ["20260711", 4389.0], ["20260712", 4389.0], ["20260713", 4389.0], ["20260714", 4389.0], ["20260715", 4389.0], ["20260716", 4389.0], ["20260717", 4389.0], ["20260718", 4389.0], ["20260719", 4389.0], ["20260720", 4389.0], ["20260721", 4389.0], ["20260722", 4389.0], ["20260723", 4389.0], ["20260724", 4400.0], ["20260725", 4400.0], ["20260726", 4229.0], ["20260727", 4229.0], ["20260728", 4229.0], ["20260729", 4229.0], ["20260730", 4229.0], ["20260731", 4250.0], ["20260801", 4250.0], ["20260802", 4250.0], ["20260803", 4234.0], ["20260804", 4234.0], ["20260805", 4234.0], ["20260806", 4234.0], ["20260807", 4374.0], ["20260808", 4374.0], ["20260809", 4374.0], ["20260810", 4353.0], ["20260811", 4353.0], ["20260812", 4353.0], ["20260813", 4353.0], ["20260814", 4346.0], ["20260815", 4346.0], ["20260816", 4346.0], ["20260817", 4346.0], ["20260818", 4346.0], ["20260819", 4346.0], ["20260820", 4346.0], ["20260821", 4528.0], ["20260822", 4528.0], ["20260823", 4528.0], ["20260824", 4549.0]], "yoy_date": "20250824", "yoy_price": 4126.0, "yoy_chg_pct": 10.3, "source_url": "https://www.ekapepia.com/priceComparison/poducerPrice/retail/periodPrice.do", "season_index": {"1": 3.9, "2": 0.1, "3": -0.5, "4": -2.4, "5": -1.7, "6": -4.7, "7": -1.8, "8": 3.6, "9": 0.6, "10": 1.5, "11": -1.6, "12": 2.9}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 4346.0, "detail_max_price": 4346.0, "detail_variety": "특란10구", "detail_grade": "일반란", "detail_market": "서울", "detail_category": "축산물", "detail_basis_name": "소매", "detail_survey_count": 1, "krei_url": "https://aglook.krei.re.kr/main/uObserveMonth/OVR0000000018", "krei_label": "KREI 산란계(계란) 관측월보", "yoy_points": [["20250526", 3937.0], ["20250527", 3937.0], ["20250528", 3937.0], ["20250529", 3937.0], ["20250530", 3867.0], ["20250531", 3867.0], ["20250601", 3867.0], ["20250602", 3867.0], ["20250603", 3867.0], ["20250604", 3867.0], ["20250605", 3867.0], ["20250606", 3867.0], ["20250607", 3867.0], ["20250608", 3867.0], ["20250609", 3867.0], ["20250610", 3867.0], ["20250611", 3867.0], ["20250612", 3867.0], ["20250613", 3869.0], ["20250614", 3869.0], ["20250615", 3869.0], ["20250616", 3869.0], ["20250617", 3869.0], ["20250618", 3869.0], ["20250619", 3888.0], ["20250620", 3834.0], ["20250621", 3862.0], ["20250622", 3862.0], ["20250623", 3650.0], ["20250624", 3650.0], ["20250625", 3650.0], ["20250626", 3650.0], ["20250627", 3750.0], ["20250628", 3750.0], ["20250629", 3750.0], ["20250630", 3750.0], ["20250701", 3750.0], ["20250702", 3750.0], ["20250703", 3750.0], ["20250704", 4203.0], ["20250705", 4203.0], ["20250706", 4203.0], ["20250707", 4203.0], ["20250708", 4203.0], ["20250709", 4203.0], ["20250710", 4203.0], ["20250711", 3640.0], ["20250712", 3640.0], ["20250713", 3640.0], ["20250714", 3640.0], ["20250715", 3640.0], ["20250716", 3640.0], ["20250717", 3640.0], ["20250718", 3929.0], ["20250719", 3929.0], ["20250720", 3929.0], ["20250721", 3929.0], ["20250722", 3929.0], ["20250723", 3929.0], ["20250724", 3929.0], ["20250725", 3708.0], ["20250726", 3708.0], ["20250727", 3708.0], ["20250728", 3708.0], ["20250729", 3708.0], ["20250730", 3708.0], ["20250731", 3708.0], ["20250803", 4101.0], ["20250804", 4101.0], ["20250805", 4101.0], ["20250806", 4101.0], ["20250807", 4101.0], ["20250808", 4381.0], ["20250809", 4381.0], ["20250810", 4381.0], ["20250811", 4381.0], ["20250812", 4381.0], ["20250813", 4381.0], ["20250814", 4381.0], ["20250815", 3985.0], ["20250816", 3985.0], ["20250817", 3985.0], ["20250818", 3985.0], ["20250819", 3985.0], ["20250820", 3985.0], ["20250821", 3985.0], ["20250822", 4126.0], ["20250823", 4126.0], ["20250824", 4126.0], ["20250825", 4126.0]], "month_chg_pct": 3.4}, "651": {"name": "멸치액젓", "basis": "소매(도매data없음)", "unit": "kg1", "latest_date": "20260824", "latest_price": 6056.0, "day_chg_pct": 0.0, "week_chg_pct": -2.6, "alert": null, "points": [["20260427", 5907.0], ["20260428", 5743.0], ["20260429", 5743.0], ["20260430", 5743.0], ["20260504", 5702.0], ["20260506", 5702.0], ["20260507", 5693.0], ["20260508", 5693.0], ["20260511", 5693.0], ["20260512", 5693.0], ["20260513", 5693.0], ["20260514", 5693.0], ["20260515", 5693.0], ["20260518", 5693.0], ["20260519", 5693.0], ["20260520", 5693.0], ["20260521", 5765.0], ["20260522", 5765.0], ["20260526", 5765.0], ["20260527", 5765.0], ["20260528", 5902.0], ["20260529", 5902.0], ["20260601", 5943.0], ["20260602", 5943.0], ["20260604", 5943.0], ["20260605", 5943.0], ["20260608", 5943.0], ["20260609", 5943.0], ["20260610", 5943.0], ["20260611", 5882.0], ["20260612", 5882.0], ["20260615", 5882.0], ["20260616", 6053.0], ["20260617", 5923.0], ["20260618", 5923.0], ["20260619", 5923.0], ["20260622", 5923.0], ["20260623", 5923.0], ["20260624", 5923.0], ["20260625", 5923.0], ["20260626", 5923.0], ["20260629", 5923.0], ["20260630", 5923.0], ["20260701", 5965.0], ["20260702", 5965.0], ["20260703", 5965.0], ["20260706", 5965.0], ["20260707", 5965.0], ["20260708", 5965.0], ["20260709", 5571.0], ["20260710", 5571.0], ["20260713", 5571.0], ["20260714", 5571.0], ["20260715", 5571.0], ["20260716", 5737.0], ["20260720", 5737.0], ["20260721", 5792.0], ["20260722", 5792.0], ["20260723", 5792.0], ["20260724", 5792.0], ["20260727", 5792.0], ["20260728", 5792.0], ["20260729", 5775.0], ["20260730", 5966.0], ["20260731", 5966.0], ["20260803", 5966.0], ["20260804", 5966.0], ["20260805", 5966.0], ["20260806", 5966.0], ["20260807", 5966.0], ["20260810", 5966.0], ["20260811", 5966.0], ["20260812", 5966.0], ["20260813", 6216.0], ["20260814", 6216.0], ["20260818", 6216.0], ["20260819", 6216.0], ["20260820", 6056.0], ["20260821", 6056.0], ["20260824", 6056.0]], "yoy_date": "20250825", "yoy_price": 5874.0, "yoy_chg_pct": 3.1, "source_url": "https://www.kamis.or.kr/customer/price/retail/item.do?itemcategorycode=600&itemcode=651&kindcode=00&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -3.7, "2": 0.0, "3": -0.2, "4": 1.3, "5": 1.9, "6": 2.9, "7": 1.1, "8": 1.7, "9": 2.2, "10": 3.3, "11": -7.0, "12": -3.5}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 4480.0, "detail_max_price": 7920.0, "detail_variety": "멸치액젓", "detail_grade": "-", "detail_market": "서울", "detail_category": "수산물", "detail_basis_name": "소매", "detail_survey_count": 1, "yoy_points": [["20250428", 5820.0], ["20250429", 5820.0], ["20250430", 5820.0], ["20250502", 5820.0], ["20250507", 5522.0], ["20250508", 5522.0], ["20250509", 5522.0], ["20250512", 5522.0], ["20250513", 5522.0], ["20250514", 5522.0], ["20250515", 5522.0], ["20250516", 5614.0], ["20250519", 5820.0], ["20250520", 5820.0], ["20250521", 5820.0], ["20250522", 5820.0], ["20250523", 5820.0], ["20250526", 5820.0], ["20250527", 5820.0], ["20250528", 5820.0], ["20250529", 5820.0], ["20250530", 5938.0], ["20250602", 5988.0], ["20250604", 5988.0], ["20250605", 5988.0], ["20250609", 5988.0], ["20250610", 5988.0], ["20250611", 5988.0], ["20250612", 5854.0], ["20250613", 5988.0], ["20250616", 5988.0], ["20250617", 5988.0], ["20250618", 5988.0], ["20250619", 5988.0], ["20250620", 5988.0], ["20250623", 5988.0], ["20250624", 5833.0], ["20250625", 5833.0], ["20250626", 5833.0], ["20250627", 5833.0], ["20250630", 5833.0], ["20250701", 5833.0], ["20250702", 5833.0], ["20250703", 5833.0], ["20250704", 5833.0], ["20250707", 5833.0], ["20250708", 5833.0], ["20250709", 5833.0], ["20250710", 5833.0], ["20250711", 5833.0], ["20250714", 5833.0], ["20250715", 5833.0], ["20250716", 5833.0], ["20250717", 5833.0], ["20250718", 5833.0], ["20250721", 5833.0], ["20250722", 5833.0], ["20250723", 5833.0], ["20250724", 5833.0], ["20250725", 5833.0], ["20250728", 5833.0], ["20250729", 5833.0], ["20250730", 5833.0], ["20250731", 5833.0], ["20250801", 5874.0], ["20250804", 5874.0], ["20250805", 5874.0], ["20250806", 5874.0], ["20250807", 5874.0], ["20250808", 5874.0], ["20250811", 5874.0], ["20250812", 5874.0], ["20250813", 5874.0], ["20250814", 5874.0], ["20250818", 5874.0], ["20250819", 5874.0], ["20250820", 5874.0], ["20250821", 5874.0], ["20250822", 5874.0], ["20250825", 5874.0]], "month_chg_pct": 4.6}, "652": {"name": "천일염", "basis": "소매(도매data없음)", "unit": "kg5", "latest_date": "20260824", "latest_price": 12352.0, "day_chg_pct": 0.0, "week_chg_pct": -1.5, "alert": null, "points": [["20260427", 12522.0], ["20260428", 12522.0], ["20260429", 12522.0], ["20260430", 12522.0], ["20260504", 12188.0], ["20260506", 12188.0], ["20260507", 12188.0], ["20260508", 12188.0], ["20260511", 12188.0], ["20260512", 12203.0], ["20260513", 12133.0], ["20260514", 12133.0], ["20260515", 12466.0], ["20260518", 12466.0], ["20260519", 12466.0], ["20260520", 12466.0], ["20260521", 12466.0], ["20260522", 12466.0], ["20260526", 12466.0], ["20260527", 12466.0], ["20260528", 10963.0], ["20260529", 10963.0], ["20260601", 10963.0], ["20260602", 10963.0], ["20260604", 11576.0], ["20260605", 11723.0], ["20260608", 11723.0], ["20260609", 11109.0], ["20260610", 11109.0], ["20260611", 11109.0], ["20260612", 11109.0], ["20260615", 11034.0], ["20260616", 11042.0], ["20260617", 11042.0], ["20260618", 11042.0], ["20260619", 11095.0], ["20260622", 11095.0], ["20260623", 11095.0], ["20260624", 11072.0], ["20260625", 11072.0], ["20260626", 11072.0], ["20260629", 11072.0], ["20260630", 11072.0], ["20260701", 11072.0], ["20260702", 11072.0], ["20260703", 11072.0], ["20260706", 11072.0], ["20260707", 11072.0], ["20260708", 11072.0], ["20260709", 11072.0], ["20260710", 11072.0], ["20260713", 11072.0], ["20260714", 11072.0], ["20260715", 11072.0], ["20260716", 11072.0], ["20260720", 11072.0], ["20260721", 12366.0], ["20260722", 12366.0], ["20260723", 12366.0], ["20260724", 12366.0], ["20260727", 12366.0], ["20260728", 12366.0], ["20260729", 12366.0], ["20260730", 12366.0], ["20260731", 12366.0], ["20260803", 12366.0], ["20260804", 12366.0], ["20260805", 12366.0], ["20260806", 12374.0], ["20260807", 12374.0], ["20260810", 12374.0], ["20260811", 12374.0], ["20260812", 12374.0], ["20260813", 12537.0], ["20260814", 12537.0], ["20260818", 12537.0], ["20260819", 12537.0], ["20260820", 12537.0], ["20260821", 12352.0], ["20260824", 12352.0]], "yoy_date": "20250825", "yoy_price": 10702.0, "yoy_chg_pct": 15.4, "source_url": "https://www.kamis.or.kr/customer/price/retail/item.do?itemcategorycode=600&itemcode=652&kindcode=00&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": -2.2, "2": -1.7, "3": -4.0, "4": -4.2, "5": 3.9, "6": 4.6, "7": 3.0, "8": 2.4, "9": 2.1, "10": 1.4, "11": -4.5, "12": -0.8}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 3750.0, "detail_max_price": 26600.0, "detail_variety": "천일염", "detail_grade": "-", "detail_market": "서울", "detail_category": "수산물", "detail_basis_name": "소매", "detail_survey_count": 1, "yoy_points": [["20250428", 12558.0], ["20250429", 12558.0], ["20250430", 12558.0], ["20250502", 12658.0], ["20250507", 12241.0], ["20250508", 12241.0], ["20250509", 12241.0], ["20250512", 12241.0], ["20250513", 12241.0], ["20250514", 12141.0], ["20250515", 12141.0], ["20250516", 12558.0], ["20250519", 12374.0], ["20250520", 12374.0], ["20250521", 12374.0], ["20250522", 12374.0], ["20250523", 12374.0], ["20250526", 12374.0], ["20250527", 12368.0], ["20250528", 12368.0], ["20250529", 12368.0], ["20250530", 12368.0], ["20250602", 12368.0], ["20250604", 12368.0], ["20250605", 12368.0], ["20250609", 12368.0], ["20250610", 12368.0], ["20250611", 12368.0], ["20250612", 12368.0], ["20250613", 12368.0], ["20250616", 12368.0], ["20250617", 12368.0], ["20250618", 12368.0], ["20250619", 12368.0], ["20250620", 12368.0], ["20250623", 12368.0], ["20250624", 12368.0], ["20250625", 12434.0], ["20250626", 12434.0], ["20250627", 12434.0], ["20250630", 12434.0], ["20250701", 12434.0], ["20250702", 12434.0], ["20250703", 12434.0], ["20250704", 12434.0], ["20250707", 12400.0], ["20250708", 12400.0], ["20250709", 12400.0], ["20250710", 12400.0], ["20250711", 12400.0], ["20250714", 12400.0], ["20250715", 12400.0], ["20250716", 12400.0], ["20250717", 12400.0], ["20250718", 12400.0], ["20250721", 12434.0], ["20250722", 12434.0], ["20250723", 12434.0], ["20250724", 11643.0], ["20250725", 11476.0], ["20250728", 11427.0], ["20250729", 11427.0], ["20250730", 11427.0], ["20250731", 11427.0], ["20250801", 11427.0], ["20250804", 11427.0], ["20250805", 11427.0], ["20250806", 12218.0], ["20250807", 12218.0], ["20250808", 12385.0], ["20250811", 12385.0], ["20250812", 12385.0], ["20250813", 12385.0], ["20250814", 12560.0], ["20250818", 12560.0], ["20250819", 12560.0], ["20250820", 12560.0], ["20250821", 12560.0], ["20250822", 10702.0], ["20250825", 10702.0]], "month_chg_pct": -0.1}, "9905": {"name": "밤(국산)", "basis": "소비지(산림조합 조사가격·상등급)", "unit": "kg", "latest_date": "20260824", "latest_price": 6314.3, "day_chg_pct": 0.0, "week_chg_pct": 0.0, "alert": null, "points": [["20260523", 6428.6], ["20260622", 6314.3], ["20260722", 6314.3], ["20260814", 6314.3], ["20260820", 6314.3], ["20260823", 6314.3], ["20260824", 6314.3]], "yoy_date": "20250824", "yoy_price": 6228.6, "yoy_chg_pct": 1.4, "source_url": "https://forestinfo.or.kr/public/sifp/selectPrinfoStList.do?searchFoppcode=5501010010", "season_index": null, "season_low_months": [], "season_high_months": [], "season_years": [], "detail_min_price": 5500, "detail_max_price": 7300, "detail_variety": "국산", "detail_grade": "상(대)", "detail_market": "공주, 부여, 산청, 서울, 창원, 청양, 하동", "detail_category": "수실류", "detail_basis_name": "소비지", "detail_survey_count": 7, "krei_url": null, "krei_label": null, "yoy_points": [["20250426", 6142.9], ["20250503", 6142.9], ["20250510", 6142.9], ["20250517", 6142.9], ["20250524", 6142.9], ["20250531", 6142.9], ["20250607", 6142.9], ["20250614", 6142.9], ["20250621", 6142.9], ["20250628", 6228.6], ["20250705", 6228.6], ["20250712", 6228.6], ["20250719", 6228.6], ["20250726", 6228.6], ["20250802", 6228.6], ["20250809", 6228.6], ["20250816", 6228.6], ["20250823", 6228.6]], "month_chg_pct": 0.0}, "111": {"name": "쌀(국산)", "basis": "중도매", "unit": "kg20", "latest_date": "20260824", "latest_price": 59000.0, "day_chg_pct": 0.0, "week_chg_pct": 0.0, "alert": null, "points": [["20260427", 59000.0], ["20260428", 59000.0], ["20260429", 59000.0], ["20260430", 59000.0], ["20260504", 59000.0], ["20260506", 59000.0], ["20260507", 59000.0], ["20260508", 59000.0], ["20260511", 59000.0], ["20260512", 59000.0], ["20260513", 59000.0], ["20260514", 59000.0], ["20260515", 59000.0], ["20260518", 59000.0], ["20260519", 59000.0], ["20260520", 59000.0], ["20260521", 59000.0], ["20260522", 59000.0], ["20260526", 59000.0], ["20260527", 59000.0], ["20260528", 59000.0], ["20260529", 59000.0], ["20260601", 59000.0], ["20260602", 59000.0], ["20260604", 59000.0], ["20260605", 59000.0], ["20260608", 59000.0], ["20260609", 59000.0], ["20260610", 59000.0], ["20260611", 59000.0], ["20260612", 59000.0], ["20260615", 59000.0], ["20260616", 59000.0], ["20260617", 59000.0], ["20260618", 59000.0], ["20260619", 59000.0], ["20260622", 59000.0], ["20260623", 59000.0], ["20260624", 59000.0], ["20260625", 59000.0], ["20260626", 59000.0], ["20260629", 59000.0], ["20260630", 59000.0], ["20260701", 59000.0], ["20260702", 59000.0], ["20260703", 59000.0], ["20260706", 59000.0], ["20260707", 59000.0], ["20260708", 59000.0], ["20260709", 59000.0], ["20260710", 59000.0], ["20260713", 59000.0], ["20260714", 59000.0], ["20260715", 59000.0], ["20260716", 59000.0], ["20260720", 59000.0], ["20260721", 59000.0], ["20260722", 59000.0], ["20260723", 59000.0], ["20260724", 59000.0], ["20260727", 59000.0], ["20260728", 59000.0], ["20260729", 59000.0], ["20260730", 59000.0], ["20260731", 59000.0], ["20260803", 59000.0], ["20260804", 59000.0], ["20260805", 59000.0], ["20260806", 59000.0], ["20260807", 59000.0], ["20260810", 59000.0], ["20260811", 59000.0], ["20260812", 59000.0], ["20260813", 59000.0], ["20260814", 59000.0], ["20260818", 59000.0], ["20260819", 59000.0], ["20260820", 59000.0], ["20260821", 59000.0], ["20260824", 59000.0]], "yoy_date": "20250825", "yoy_price": 54000.0, "yoy_chg_pct": 9.3, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=100&itemcode=111&kindcode=01&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": 1.3, "2": -0.2, "3": -0.0, "4": -1.8, "5": -1.3, "6": -2.9, "7": -2.8, "8": -3.0, "9": 0.2, "10": 5.0, "11": 3.3, "12": 2.3}, "season_low_months": [], "season_high_months": [], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 59000.0, "detail_max_price": 59000.0, "detail_variety": "일반계(20kg들이)", "detail_grade": "상품", "detail_market": "서울", "detail_category": "식량작물", "detail_basis_name": "중도매", "detail_survey_count": 1, "krei_url": "https://aglook.krei.re.kr/main/uObserveMonth/OVR0000000070", "krei_label": "KREI 쌀 관측월보", "yoy_points": [["20250428", 50800.0], ["20250429", 50800.0], ["20250430", 50800.0], ["20250502", 50800.0], ["20250507", 53600.0], ["20250508", 53600.0], ["20250509", 53600.0], ["20250512", 53600.0], ["20250513", 53600.0], ["20250514", 53600.0], ["20250515", 53600.0], ["20250516", 53600.0], ["20250519", 53600.0], ["20250520", 53600.0], ["20250521", 53600.0], ["20250522", 53600.0], ["20250523", 53600.0], ["20250526", 53600.0], ["20250527", 53600.0], ["20250528", 53600.0], ["20250529", 53600.0], ["20250530", 53600.0], ["20250602", 53600.0], ["20250604", 53600.0], ["20250605", 53600.0], ["20250609", 53600.0], ["20250610", 53600.0], ["20250611", 53600.0], ["20250612", 53600.0], ["20250613", 53600.0], ["20250616", 53600.0], ["20250617", 53600.0], ["20250618", 53600.0], ["20250619", 53600.0], ["20250620", 53600.0], ["20250623", 53600.0], ["20250624", 53600.0], ["20250625", 53600.0], ["20250626", 53600.0], ["20250627", 53600.0], ["20250630", 53600.0], ["20250701", 53600.0], ["20250702", 53600.0], ["20250703", 53600.0], ["20250704", 53600.0], ["20250707", 53600.0], ["20250708", 53600.0], ["20250709", 53600.0], ["20250710", 53600.0], ["20250711", 53600.0], ["20250714", 53600.0], ["20250715", 53600.0], ["20250716", 53600.0], ["20250717", 53600.0], ["20250718", 53600.0], ["20250721", 53600.0], ["20250722", 53600.0], ["20250723", 53600.0], ["20250724", 53600.0], ["20250725", 53600.0], ["20250728", 53600.0], ["20250729", 53600.0], ["20250730", 53600.0], ["20250731", 53600.0], ["20250801", 53600.0], ["20250804", 53600.0], ["20250805", 53600.0], ["20250806", 54000.0], ["20250807", 54000.0], ["20250808", 54000.0], ["20250811", 54000.0], ["20250812", 54000.0], ["20250813", 54000.0], ["20250814", 54000.0], ["20250818", 54000.0], ["20250819", 54000.0], ["20250820", 54000.0], ["20250821", 54000.0], ["20250822", 54000.0], ["20250825", 54000.0]], "month_chg_pct": 0.0}, "226": {"name": "딸기(국산)", "basis": "중도매", "unit": "kg2", "latest_date": "20260430", "latest_price": 13200.0, "day_chg_pct": 0.0, "week_chg_pct": null, "alert": null, "points": [["20260427", 13200.0], ["20260428", 13200.0], ["20260429", 13200.0], ["20260430", 13200.0]], "yoy_date": "20250430", "yoy_price": 16800.0, "yoy_chg_pct": -21.4, "source_url": "https://www.kamis.or.kr/customer/price/wholesale/item.do?itemcategorycode=200&itemcode=226&kindcode=00&productrankcode=04&countrycode=1101&convert_kg_yn=N", "season_index": {"1": 20.6, "2": -6.3, "3": -33.6, "4": -40.3, "5": -61.6, "6": null, "7": null, "8": null, "9": null, "10": null, "11": 64.1, "12": 57.1}, "season_low_months": [5, 4, 3], "season_high_months": [11, 12, 1], "season_years": [2021, 2022, 2023, 2024, 2025], "detail_min_price": 13200.0, "detail_max_price": 13200.0, "detail_variety": "설향", "detail_grade": "상품", "detail_market": "서울", "detail_category": "채소류", "detail_basis_name": "중도매", "detail_survey_count": 1, "yoy_points": [["20250428", 15600.0], ["20250429", 16000.0], ["20250430", 16800.0]], "month_chg_pct": null}, "248D": {"name": "고춧가루(도매·건고추)", "basis": "중도매(건고추 일반등급 경락가)", "unit": "kg1", "latest_date": "20260826", "latest_price": 20083.3, "day_chg_pct": 4.8, "week_chg_pct": -7.3, "alert": null, "points": [["20260807", 22291.7], ["20260808", 22083.3], ["20260810", 21666.7], ["20260811", 22666.7], ["20260812", 22333.3], ["20260813", 23416.7], ["20260814", 23201.6], ["20260815", 23333.3], ["20260817", 22500.0], ["20260818", 22500.0], ["20260819", 21666.7], ["20260820", 21000.0], ["20260821", 21416.7], ["20260822", 21666.7], ["20260824", 19916.7], ["20260825", 19166.7], ["20260826", 20083.3]], "yoy_date": null, "yoy_price": null, "yoy_chg_pct": null, "source_url": "https://www.data.go.kr/data/15141808/openapi.do", "season_index": null, "season_low_months": [], "season_high_months": [], "season_years": [], "detail_min_price": 2216.7, "detail_max_price": 28333.3, "detail_variety": "건고추", "detail_grade": "일반", "detail_market": "광주각화, 광주서부, 구미, 부산반여, 순천, 익산, 인천남촌, 전주, 진주, 창원내서, 창원팔용, 천안, 충주", "detail_category": "조미채소류", "detail_basis_name": "중도매", "detail_survey_count": 160, "krei_url": null, "krei_label": null, "yoy_points": [], "month_chg_pct": null}};
+
+// 표시 순서 고정용. 고춧가루는 도매(248D) 바로 다음에 소매(248)가 오도록 붙여서 배치
+// (같은 원물의 도·소매 데이터라 카드/표 어디서든 나란히 보이는 게 자연스러움).
+const ITEM_ORDER = ['111', '141', '151', '211', '248D', '248', '226', '312', '313', '651', '652', '9903', '9905'];
+function dataEntries() {
+  return ITEM_ORDER.filter(code => DATA[code]).map(code => [code, DATA[code]]);
+}
+
+// 식품업계 가격인상 동향 탭: 가공식품(라면·음료·과자·간편식 등) 가격 인상 뉴스 (수동 조사·정리, 실시간 갱신 아님)
+const HIKE_NEWS_AS_OF = '2026-08-30';
+const HIKE_NEWS_DATA = [
+  {
+    cat: '김치',
+    items: [
+      { company: '풀무원', product: '김치·간식·냉동볶음밥·소스·계란가공·면 밀키트 등 7개 제품군 30개 품목', pct: '평균 6.7%↑', date: '2026.08.13 시행', source: '이투데이·뉴스핌 등', url: 'https://www.etoday.co.kr/news/view/2609928', summary: '평양냉면(2인) 6,980원→7,480원(7.2%), 모짜렐라 핫도그(4입) 8,480원→8,980원(5.9%), 얄피꽉찬만두 9,980원→10,480원(5.0%) 등 김치를 포함한 7개 제품군 30개 품목 가격을 인상했다. 원재료·부자재·제조원가 상승과 고환율에 따른 수입 부담, 해상운임·유류비 증가가 배경이다.' },
+    ],
+  },
+  {
+    cat: '두부',
+    items: [
+      { company: '풀무원', product: '두부·나물류·소재면 등 기초 소재식품군', pct: '동결', date: '-', source: '이투데이·뉴스핌 등', url: 'https://www.etoday.co.kr/news/view/2609928', summary: '풀무원이 김치 등 30개 품목 가격을 인상하면서도 두부·나물류·소재면 등 기초 소재식품군은 이번 인상 대상에서 제외해 동결했다. 최근 3개월 내 다른 두부 제조사(CJ제일제당·대상 등)의 가격 인상 소식은 확인되지 않았다.' },
+    ],
+  },
+  {
+    cat: '참치·장류',
+    items: [
+      { company: '사조', product: '참치캔·꽁치·고등어 등 수산캔', pct: '참치캔 10%↑·수산캔 최대 20%↑', date: '2026.08.03 시행', source: '이데일리·파이낸셜뉴스 등', url: 'https://www.edaily.co.kr/News/Read?newsId=04113126645515176&mediaCodeNo=257', summary: '참치캔 가격을 10% 올리고, 꽁치·고등어 등 다른 수산캔은 최대 20%까지 인상했다.' },
+      { company: '사조', product: '장류(고추장·된장·쌈장)·식용유지(참기름·들기름)', pct: '평균 12%↑', date: '2026.08.03 시행', source: '이데일리·파이낸셜뉴스 등', url: 'https://www.edaily.co.kr/News/Read?newsId=04113126645515176&mediaCodeNo=257', summary: '참치캔·수산캔과 함께 장류와 식용유지 가격도 평균 12% 인상했다. 원재료 원가 상승이 배경으로 지목된다.' },
+    ],
+  },
+  {
+    cat: '라면',
+    items: [
+      { company: '농심', product: '용기라면·스낵·음료 43개 브랜드(육개장사발면·새우깡 등)', pct: '평균 5.8%↑', date: '2026.08.01 시행', source: '전자신문 등', url: 'https://www.etnews.com/20260724000100', summary: '용기면 18개·스낵 23개·음료 2개 등 총 43개 브랜드 출고가를 인상(용기면 6.0%·스낵 5.5%·음료 7.7%). 육개장사발면 1,100원→1,200원, 새우깡(90g) 1,500원→1,600원. 다만 신라면 등 라면 매출 63%를 차지하는 봉지라면 전 품목은 이번 인상에서 제외했다.' },
+      { company: '오뚜기', product: '컵라면·만두 등 출고가', pct: '6~7%↑', date: '2026.09.07 시행', source: '헤럴드경제 등', url: 'https://biz.heraldcorp.com/article/10839853', summary: '컵라면·만두 일부 품목 출고가를 인상하되 봉지라면은 동결했다. 8월 중순 업소용 라면·만두 가격도 올려 한 달 새 세 차례 가격을 조정했다.' },
+      { company: '팔도', product: '컵라면 12종·음료 9종', pct: '컵라면 5.5%↑·음료 5.8%↑', date: '2026.09.01 시행', source: '뉴스핌', url: 'https://www.newspim.com/news/view/20260821000694', summary: '컵라면·음료 가격을 인상하되 봉지라면은 동결했다. 원가 상승에 경영 효율화로 대응해왔지만 일부 품목은 조정이 불가피했다고 설명했다.' },
+      { company: '삼양식품', product: '전 품목', pct: '동결', date: '-', source: '뉴스핌', url: 'https://www.newspim.com/news/view/20260821000694', summary: '라면 4사(농심·오뚜기·팔도·삼양) 중 유일하게 가격을 동결했다. 해외 매출 비중이 약 84%에 달해 국내 인상보다 글로벌 매출 확대에 집중하는 것으로 풀이된다.' },
+    ],
+  },
+  {
+    cat: '음료',
+    items: [
+      { company: '코카콜라음료', product: '코카콜라·스프라이트·환타·파워에이드 등 51~52개 품목', pct: '평균 7.2%↑(최대 9%)', date: '2026.08.01 시행', source: '뉴스핌·ZDNet코리아 등', url: 'https://www.newspim.com/news/view/20260721001067', summary: '캔 기준 코카콜라 2,100원→2,200원, 스프라이트 1,900원→2,000원 등으로 인상. 중동發 국제유가·환율 상승과 알루미늄·포장재 원가 부담이 배경이며, 2024년 9월 이후 약 2년 만의 인상이다.' },
+      { company: '롯데칠성음료', product: '칠성사이다·펩시콜라 등 44개 품목', pct: '평균 5.3%↑', date: '2026.06.26 시행', source: '뉴스핌(종합)', url: 'https://www.newspim.com/news/view/20260724001032', summary: '원가 부담 증가를 이유로 주요 탄산음료 출고가를 인상했다. 코카콜라음료보다 앞서 이뤄져 하반기 음료업계 줄인상의 시작으로 꼽힌다.' },
+    ],
+  },
+  {
+    cat: '과자·스낵',
+    items: [
+      { company: '농심', product: '새우깡 등 스낵 23개 브랜드', pct: '평균 5.5%↑', date: '2026.08.01 시행', source: '전자신문 등', url: 'https://www.etnews.com/20260724000100', summary: '용기라면·음료 인상과 함께 스낵류 출고가도 인상했다. 새우깡(90g)은 1,500원에서 1,600원으로 올랐다.' },
+      { company: '프링글스(켈로그)', product: '전 용량대', pct: '약 5%↑(개당 100~200원)', date: '2026.06.01 시행', source: '위키트리', url: 'https://www.wikitree.co.kr/articles/1137127', summary: '53g 제품 2,000원→2,100원, 110g 대용량 4,000원→4,200원. 2023년 2월 이후 약 3년 만의 조정으로, 중동 정세發 유가 급등(전년비 +21.9%)과 환율 부담이 배경이다.' },
+    ],
+  },
+  {
+    cat: '간편식·베이커리',
+    items: [
+      { company: 'CJ제일제당', product: '햇반·만두·생선구이 등 27개 품목', pct: '평균 8%↑', date: '2026.07.30 시행', source: '뉴스핌(종합)', url: 'https://www.newspim.com/news/view/20260724001032', summary: '즉석밥·냉동 만두·생선구이 등 HMR 주요 품목 출고가를 인상했다. 원재료·부자재 가격 상승분을 반영한 조치다.' },
+      { company: 'CJ푸드빌(뚜레쥬르)', product: '빵·케이크 76종', pct: '평균 8.2%↑', date: '2026.07.31 시행', source: '뉴스핌(종합)', url: 'https://www.newspim.com/news/view/20260724001032', summary: '원가 부담 증가로 매장 판매 빵·케이크 가격을 인상했다.' },
+      { company: '던킨', product: '도넛 39종', pct: '평균 6.5%↑', date: '2026.08.02 시행', source: '뉴스핌(종합)', url: 'https://www.newspim.com/news/view/20260724001032', summary: '제반 비용 상승을 이유로 도넛 제품 가격을 인상했다.' },
+    ],
+  },
+];
+
+// 원물 수매 이슈 탭: 품목명+"수매" 키워드로 조사한 뉴스 (수동 조사·정리, 실시간 갱신 아님)
+const NEWS_AS_OF = '2026-08-25';
+const NEWS_DATA = {
+  '248': { // 고춧가루
+    signal: null,
+    articles: [
+      { date: '2026-08-09', source: '헤럴드경제', title: '영양군, 2026년산 홍고추 수매 본격 착수…1082농가 대상 5759톤 수매', url: 'https://biz.heraldcorp.com/article/10834913', summary: '경북 영양군이 2026년산 홍고추 수매를 9월 22일까지 진행 중(1,082농가·5,759톤). 수매가는 kg당 특등(수) 2,750원, 특등(우) 2,550원(출하장려금 포함). 수매된 고추는 "빛깔찬" 고춧가루로 가공된다.' },
+      { date: '2026-08-17', source: '아주경제', title: '[포토] 농협유통, 2026년산 햇건고추 본격 판매', url: 'https://www.ajunews.com/view/20260817184701930', summary: '농협유통이 2026년산 햇건고추 판매를 시작했다는 소식으로, 신곡 유통이 본격화되는 시점임을 보여준다.' },
+    ],
+  },
+  '211': { // 배추
+    signal: null,
+    articles: [
+      { date: '2026-08-11', source: '뉴스핌', title: '폭염에도 배추값 32%↓…농식품부 "추석까지 채소 안정 공급"', url: 'https://www.newspim.com/news/view/20260811000584', summary: '7~8월 고랭지 지역의 강우·기온이 적절해 작황이 좋아 단위면적당 생산량이 평년보다 5~10% 증가, 배추 가격이 평년보다 32% 낮은 상태. 정부는 배추 1만5000톤을 비축하고 추석까지 최대 40% 할인행사를 진행한다. 다만 이상기상·병해충으로 고랭지 여름배추 재배면적은 2021년 5,551ha에서 2024년 3,747ha로 줄어드는 추세다.' },
+      { date: '2026-08-06', source: '팜인사이트', title: '2026년산 저장배추 7만3천 톤… 전년 대비 5.2% 감소', url: 'https://www.farminsight.net/news/articleView.html?idxno=16109', summary: '저장배추 물량은 전년보다 줄었지만, 노지배추 작황 호조로 전체 수급에는 큰 영향이 없는 것으로 파악된다.' },
+    ],
+  },
+  '151': { // 고구마
+    signal: null,
+    articles: [
+      { date: '2026-08-09', source: '한국경제', title: '겨울 간식 고구마, 사실 지금부터 제철', url: 'https://www.hankyung.com/article/2026080927131', summary: '저장고구마 재고 감소와 초기 출하량 부족으로 가격이 소폭 상승(7월 7일 가락시장 10kg 32,717원, 전년동기 대비 +1.3%). 8월 중순 이후 해남·익산·여주·당진 등 주산지 수확이 본격화되며 공급 증가에 따라 가격이 안정될 것으로 전망된다.' },
+    ],
+  },
+  '312': { // 참깨
+    signal: { text: '2026년은 한·미 FTA 발효 15년차로 미국산 참깨 관세가 42%에서 완전 철폐되는 해입니다. 저가 수입 급증과 잔류농약(글리포세이트) 안전성 논란이 함께 제기된 만큼, 원료 소싱처 다변화와 품질검증 체계를 미리 점검해두는 것이 좋습니다.' },
+    articles: [
+      { date: '2025-07-06', source: '농민신문', title: "'미국산 참깨' 내년 관세 없어지는데…안전성 관리는 '미비'", url: 'https://www.nongmin.com/article/20250704500682', summary: '한·미 FTA 15년차인 2026년 미국산 참깨 관세가 완전 철폐(42%→0%)된다. 올해 1~5월 수입량이 이미 1,460.8톤으로 급증(중국·인도·부르키나파소에 이어 4위 규모). 국내 반입된 미국산 참깨에서 국내 잔류허용기준(0.05mg/kg)의 19배(0.934mg/kg)에 달하는 제초제 성분 글리포세이트가 검출돼 안전성 논란이 일고 있으며, 정부 차원의 검사 체계는 미비하다는 지적이 나온다.' },
+    ],
+  },
+  '313': { // 들깨
+    signal: null,
+    articles: [],
+  },
+  '141': { // 콩(백태/대립종)
+    signal: { text: '전략작물직불제 개편으로 서리태에서 백태로 다시 전환하려는 농가가 지원 대상에서 제외되며 반발이 이어지고 있습니다. 국내 백태 수매물량·가격 변동성이 커질 수 있어 계약재배 물량을 미리 확인해두는 것이 좋습니다.' },
+    articles: [
+      { date: '2026-02-12', source: '농업인신문(다음뉴스)', title: "서리태 심었다가 '진퇴양난'…전략작물직불제 개정안 논란", url: 'https://v.daum.net/v/20260212080031613', summary: '정부가 전략작물직불제 시행지침을 개정해 백태·콩나물콩을 전년도 재배 농가에만 지원하기로 했다. 지난해 장마로 파종기를 놓쳐 서리태로 전환했던 농가들이 다시 백태로 돌아가려 해도 지원을 받지 못하는 상황이며, 서리태는 생산량 증가로 1kg당 5,000~5,200원까지 가격이 하락(전년비 -10~-20%)했다. 농민단체는 정책 철회를 요구하고 있다.' },
+      { date: '2026-08-05', source: '대한민국 정책브리핑(농식품부)', title: '정부 콩 수매 확대로 안정적인 농가판로 지원 강화', url: 'https://www.korea.kr/briefing/pressReleaseView.do?newsId=156260428', summary: '정부가 콩 수매 물량을 확대해 농가 판로 지원을 강화한다는 보도자료(본문은 접근 제한으로 확인하지 못해 제목만 인용).' },
+    ],
+  },
+  '9903': { // 계란
+    signal: { text: '지난 겨울 AI로 줄었던 계란 생산량은 8월부터 회복 국면에 들어섰습니다. 다만 겨울철(11~2월)은 AI 재유행 위험이 매년 반복되는 시기이므로, 시즌 진입 전 계약물량·비축 전략을 점검해두면 좋습니다.' },
+    articles: [
+      { date: '2026-05-26', source: '뉴스핌', title: 'AI 여파에 계란값 강세…농식품부, 30구당 1000원 할인 행사 지속', url: 'https://www.newspim.com/news/view/20260526000774', summary: '지난겨울 고병원성 AI로 산란계 1,134만 마리가 살처분되며 5월 계란 생산량이 전년동기 대비 3.6% 감소, 산지가격은 XL 30구 기준 5,921원(+8.8%)까지 상승했다. 정부는 30구당 1,000원 할인, 할당관세 확대, 신선란 추가 수입 등을 추진 중이며 산란계 기반이 회복되는 7월까지 강세가 이어질 수 있다고 전망했다.' },
+      { date: '2026-07-24', source: '머니투데이', title: '계란 수급 숨통 트일까…8월부터 생산 증가 전망', url: 'https://www.mt.co.kr/economy/2026/07/24/2026072408031530570', summary: '상반기 사상 최대 수준으로 입식된 산란계가 산란 단계에 진입하며 8월(+1.4%)·9월(+1.5%)·10월(+0.8%) 생산량이 전년동월 대비 증가로 전환될 전망이다. 소비자가격도 6월 26일 7,556원에서 7월 22일 7,339원으로 하락 전환했으며, 추가 수입 물량과 국내 생산 증가가 겹쳐 8월 이후 점진적인 가격 안정이 예상된다.' },
+    ],
+  },
+  '651': { // 멸치액젓
+    signal: { text: '멸치 어획량 자체는 아직 양호하지만, 조업 원가(유류비)가 급등한 상태입니다. 원료 멸치 매입가·액젓 단가에 시차를 두고 반영될 수 있어 계속 지켜볼 필요가 있습니다.' },
+    articles: [
+      { date: '2026-06-30', source: '（다음뉴스）', title: "멸치 금어기 풀리는데 고유가로 경남 남해안 멸치업계 '걱정'", url: 'https://v.daum.net/v/20260630153702793', summary: '7월 1일 금어기 해제를 앞두고 있지만, 조업용 경유 가격이 전년 동기 대비 약 62% 올라 선단당 월 추가 유류비 부담이 약 5천만 원에 이른다. 통영 욕지도 인근 해상풍력 개발로 조업구역이 축소될 우려도 있으나, 현재까지 어장 형성 자체가 나빠졌다는 보도는 없다.' },
+    ],
+  },
+  '652': { // 천일염
+    signal: { text: '지금은 재고 과잉으로 가격이 생산원가보다도 낮게 형성돼 있지만, 염전 자체가 태양광·양식장으로 빠르게 전환되며 생산 기반이 구조적으로 줄고 있습니다. 재고가 소진되면 공급 부족으로 반전될 수 있어 장기 계약·비축 여지를 검토해볼 시점입니다.' },
+    articles: [
+      { date: '2026-01-28', source: '（다음뉴스）', title: '"20kg 한 포대에 7천 원?"…가격 폭락한 신안 천일염, 이유는', url: 'https://v.daum.net/v/20260128184045924', summary: '2023년 후쿠시마 오염수 방류 당시 사재기했던 재고 소진 지연, 중국 등 수입산 소금 유입, 저염식 트렌드로 인한 소비 위축이 겹쳐 20kg 한 포대 가격이 2023년 2만2천 원대에서 현재 6,500~7,000원까지 폭락(생산원가의 60% 수준)했다. 소금 창고에는 450만 포대의 재고가 쌓여 있다.' },
+      { date: '2025-11-17', source: '뉴시스', title: '태양광·양식장에 잠식된 신안 염전…천일염산업 위기', url: 'https://www.newsis.com/view/NISX20251116_0003404711', summary: '폐업한 염전의 82%는 태양광, 13%는 양식장으로 전환됐다. 염전 면적은 2011년 2,662ha에서 2025년 1,726ha로 14년 새 35% 감소했고, 2015년 이후 322개소가 폐업(여의도 면적의 2배 상실)했다. 천일염 생산량은 2013년 42만 톤에서 2024년 16만4천 톤으로 급감했다.' },
+    ],
+  },
+  '9905': { // 밤(국산)
+    signal: null,
+    articles: [],
+  },
+  '111': { // 쌀(국산)
+    signal: { text: '8월 27일 개정 양곡관리법 시행으로 초과생산 3~5% 또는 단경기(7~9월) 가격 5~8% 하락 시 정부가 쌀을 의무 매입하는 새로운 시장격리 기준이 적용됩니다. 발동 기준에 민간 재고량까지 반영되는 만큼, 시행 직후 정부 개입 여부와 산지 쌀값 변동을 주시할 필요가 있습니다.' },
+    articles: [
+      { date: '2026-02-21', source: '경향신문', title: '[경제뭔데]한가마에 23만원 넘었다···계속 오르는 쌀값, 적정 가격 얼마여야 하나', url: 'https://www.khan.co.kr/article/202602210600021', summary: '80kg 한 가마 쌀값이 23만원을 넘어서며 여야 간 정책 실패 공방이 벌어졌고, 정부는 8월 시행 예정인 새 양곡관리법을 통한 구조적 개편을 예고했다.' },
+      { date: '2026-05-10', source: '매일경제(다음뉴스)', title: "[단독] 정부, 쌀 사들일 때 '민간 재고량'까지 본다", url: 'https://v.daum.net/v/20260510174805164', summary: '정부가 쌀 의무매입 기준을 초과생산율·가격뿐 아니라 12월 말 기준 민간 재고량(평년 대비 10% 초과 시)까지 반영하는 다층적 발동 체계로 개편 중이며, 재정 부담 확대 우려도 함께 제기됐다.' },
+      { date: '2026-05-11', source: '세계일보(다음뉴스)', title: '정부, 쌀 3~5% 초과생산 시 매입대책 수립 기준 마련', url: 'https://v.daum.net/v/20260511202939372', summary: '정부가 쌀 등 곡물 수급안정 조치 발동 기준을 초과생산 3~5%, 단경기(7~9월) 가격 5~8% 하락으로 구체화했으며, 관련 양곡관리법은 8월 27일 시행 예정이다.' },
+    ],
+  },
+  '226': { // 딸기(국산)
+    signal: { text: '8월 폭염이 이어지며 겨울 출하기(11~12월)를 준비하는 딸기 육묘(모종) 생산이 고비를 맞고 있습니다. 물량·품질 차질 가능성을 모니터링할 필요가 있으며, 다만 스마트팜 기반 여름딸기 생산 등 대응 기술은 확대되는 추세입니다.' },
+    articles: [
+      { date: '2026-07-31', source: 'YTN 사이언스', title: "K-딸기, 폭염 이겼다...여름에도 딸기 수확 '활짝'", url: 'https://m.science.ytn.co.kr/program/view_today.php?s_mcd=0082&key=202607311106543077', summary: '경기 이천의 스마트팜이 수냉식 LED와 내열성 품종 개발로 기존 대비 에너지 38.4% 절감, 생산량 20% 증가를 달성하며 여름철에도 딸기를 연 27톤 생산해 온라인·베이커리 업체에 공급하고 있다.' },
+      { date: '2026-08-20', source: '경남농업기술원 발표(경남일보 계열)', title: '경남농기원 "폭염기 딸기 모종 피해 막아라"', url: 'https://www.gnnews.co.kr/news/articleView.html?idxno=643677', summary: '경남농업기술원이 여름철 고온다습으로 인한 딸기 육묘 피해를 막기 위해 차광막·순환팬·냉방을 결합한 고온병해경감 패키지 기술을 현장 실증 중이며, 주간 평균기온을 1.7도, 한낮 최고기온을 약 4도 낮추는 효과를 확인했다고 밝혔다.' },
+    ],
+  },
+};
+
+// 품목별 주요 수매(수확) 시기 — 농사로/한국민족문화대백과/유통 관련 보도자료 등을 참고해 정리 (실제 시기는 산지·기후에 따라 달라질 수 있음)
+const PROCURE_INFO = {
+  '248': { months: [8, 9, 10], label: '8~10월', note: '건고추 수확 후 8~10월경 수매가 이뤄집니다(예: 영양군 2026년산 8/9~9/22 수매).' },
+  '211': { months: [7, 8, 9, 11, 12], label: '고랭지 7~9월 · 가을(김장) 11~12월', note: '고랭지배추는 7~9월, 가을(김장)배추는 11~12월에 주로 출하됩니다(봄배추 5~6월·월동배추 1~3월도 있음).' },
+  '151': { months: [8, 9, 10], label: '8~10월(9~10월 집중)', note: '8월부터 수확이 시작돼 9~10월에 본격적으로 출하됩니다.' },
+  '312': { months: [8, 9], label: '8월 하순~9월 중순', note: '지역·재배방식에 따라 8월 중순~9월 중순 사이에 수확됩니다.' },
+  '313': { months: [10], label: '10월', note: '가을 수확작물로 10월에 주로 수확됩니다.' },
+  '141': { months: [11, 12, 1, 2], label: '정부수매 11월~익년 2월', note: '수매약정은 3~6월에 미리 체결되고, 실제 정부수매는 11월~익년 2월에 이뤄집니다.' },
+  '9903': { months: [], label: '연중(계절 수매 없음)', note: '매일 생산되는 품목으로 특정 수매 시기가 따로 없습니다.' },
+  '651': { months: [5, 6], label: '5~6월(봄멸치 담금철)', note: '전통적으로 5~6월에 잡히는 봄멸치가 가장 성숙해 액젓 담그기에 적합한 시기로 알려져 있습니다.' },
+  '652': { months: [4, 5, 6, 9, 10], label: '봄·가을(4~6월, 9~10월)', note: '장마·태풍이 있는 여름과 강설이 잦은 겨울(서해안)에는 생산이 줄고, 봄·가을에 채염이 활발합니다.' },
+  '9905': { months: [9, 10], label: '9~10월', note: '9월 중순부터 10월 말까지가 주요 수확기입니다.' },
+  '111': { months: [9, 10], label: '9~10월(벼 수확기)', note: '조생종은 8월 말부터, 중만생종은 10월에 주로 수확·수매됩니다. 정부양곡 공공비축미 매입은 통상 10~11월에 이뤄집니다.' },
+  '226': { months: [12, 1, 2, 3, 4], label: '12월~이듬해 4월(겨울~봄 출하기)', note: '국내 딸기는 대부분 촉성재배로 11~12월부터 출하가 시작돼 이듬해 5월까지 이어지며, 1~3월이 출하 성수기입니다. 이 기간 외(6~10월)에는 시장 조사 자체가 이뤄지지 않습니다.' },
+};
+
+const fmtDate = d => `${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}`;
+const fmtPrice = n => Math.round(n).toLocaleString('ko-KR');
+const fmtPct = n => (n > 0 ? '+' : '') + n.toFixed(1) + '%';
+
+function chgClass(n) {
+  if (n > 0.05) return 'chg-up';
+  if (n < -0.05) return 'chg-down';
+  return 'chg-flat';
+}
+
+function sparkline(points, yoyPoints) {
+  const w = 220, h = 68, pad = 3;
+  const hasYoy = Array.isArray(yoyPoints) && yoyPoints.length >= 2;
+
+  const curPrices = points.map(p => p[1]);
+  const yoyPrices = hasYoy ? yoyPoints.map(p => p[1]) : [];
+  const allPrices = curPrices.concat(yoyPrices);
+  const min = Math.min(...allPrices), max = Math.max(...allPrices);
+  const range = (max - min) || 1;
+
+  function toCoords(prices) {
+    const stepX = (w - pad * 2) / (prices.length - 1 || 1);
+    return prices.map((p, i) => {
+      const x = pad + i * stepX;
+      const y = pad + (h - pad * 2) * (1 - (p - min) / range);
+      return [x, y];
+    });
+  }
+  function toPath(coords) {
+    return coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+  }
+
+  const coords = toCoords(curPrices);
+  const linePath = toPath(coords);
+  const areaPath = linePath + ` L${coords[coords.length-1][0].toFixed(1)},${h-pad} L${coords[0][0].toFixed(1)},${h-pad} Z`;
+  const last = coords[coords.length - 1];
+
+  const yoyCoords = hasYoy ? toCoords(yoyPrices) : [];
+  const yoyLinePath = hasYoy ? toPath(yoyCoords) : '';
+
+  return `
+    <svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"
+         data-points='${JSON.stringify(points)}' data-coords='${JSON.stringify(coords)}'
+         data-yoy-points='${JSON.stringify(hasYoy ? yoyPoints : [])}' data-yoy-coords='${JSON.stringify(yoyCoords)}'
+         data-min="${min}" data-max="${max}">
+      <path class="spark-area" d="${areaPath}"></path>
+      ${hasYoy ? `<path class="spark-line-yoy" d="${yoyLinePath}"></path>` : ''}
+      <path class="spark-line" d="${linePath}"></path>
+      <circle class="spark-dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3"></circle>
+    </svg>
+    ${hasYoy ? `<div class="spark-legend"><span class="legend-item"><span class="legend-swatch"></span>최근</span><span class="legend-item"><span class="legend-swatch yoy"></span>전년 동기</span></div>` : ''}`;
+}
+
+// 하단 스파크라인이 어떤 기간/조사건수를 나타내는지 카드마다 실제 데이터 기준으로 표시
+// (품목마다 조사 주기가 달라 기간이 조금씩 다를 수 있어, 하드코딩 대신 points 배열에서 직접 계산)
+function sparkCaption(points, yoyPoints) {
+  if (!points || points.length < 2) return '';
+  const shortDate = d => `${parseInt(d.slice(4, 6), 10)}.${parseInt(d.slice(6, 8), 10)}`;
+  const first = points[0][0], last = points[points.length - 1][0];
+  let txt = `최근 시세 추이 (${shortDate(first)}~${shortDate(last)} · 조사 ${points.length}건)`;
+  if (Array.isArray(yoyPoints) && yoyPoints.length >= 2) {
+    const yf = yoyPoints[0][0], yl = yoyPoints[yoyPoints.length - 1][0];
+    txt += ` · 전년 동기('${yf.slice(2,4)}.${shortDate(yf)}~${shortDate(yl)})`;
+  }
+  return txt;
+}
+
+const ITEM_COLORS = {
+  '141': 'var(--cat-1)',  // 콩(백태/대립종)
+  '151': 'var(--cat-2)',  // 고구마
+  '211': 'var(--cat-3)',  // 배추
+  '248': 'var(--cat-4)',  // 고춧가루
+  '312': 'var(--cat-5)',  // 참깨
+  '313': 'var(--cat-6)',  // 들깨
+  '9903': 'var(--cat-7)', // 계란
+  '651': 'var(--cat-8)',  // 멸치액젓
+  '652': 'var(--cat-9)',  // 천일염
+  '9905': 'var(--cat-10)', // 밤(국산)
+  '111': 'var(--cat-11)', // 쌀(국산)
+  '226': 'var(--cat-12)', // 딸기(국산)
+  '248D': 'var(--cat-4)', // 고춧가루(도매·건고추) - 소매(248)와 같은 계열색
+};
+function itemColor(code) {
+  return ITEM_COLORS[code] || 'var(--series-1)';
+}
+
+// 원물비중 높은 품목(사내 SKU) 매핑 - 카테고리·건수
+const ITEM_RELATED_PRODUCTS = {
+  '111': { total: 38, cats: [['HMR면·떡', 8], ['누룽지', 7], ['냉장떡', 5]] },
+  '141': { total: 26, cats: [['두부', 13], ['두유', 10], ['콩가공', 2]] },
+  '151': { total: 7, cats: [['원물가공', 5], ['소재면', 2]] },
+  '211': { total: 35, cats: [['포장김치', 33], ['HMR국탕', 2]] },
+  '226': { total: 2, cats: [['잼류', 2]] },
+  '248': { total: 6, cats: [['고춧가루', 6]] },
+  '248D': { total: 6, cats: [['고춧가루', 6]] },
+  '312': { total: 3, cats: [['참들기름', 2], ['고춧가루', 1]] },
+  '313': { total: 2, cats: [['참들기름', 2]] },
+  '651': { total: 5, cats: [['액젓', 5]] },
+  '652': { total: 12, cats: [['소금', 12]] },
+  '9903': { total: 2, cats: [['난가공', 2]] },
+  '9905': { total: 2, cats: [['원물가공', 2]] },
+};
+// 카테고리별 SKU 상세: [담당자,[[품명,바코드,구매처idx,과세여부(1=과세/0=면세)]|[...,예외담당자],...]] - cats 순서 매칭. 248D/248은 SKU 공유.
+const CODE_ALIAS = { '248D': '248' };
+const VENDORS = ["한스코리아","현농","","동송농업협동조합 미곡종합처리장","함양농협 가공사업소(가공)","오성푸드","정남농협화성웰빙떡클러스터사업단(","공덕농협 농산물가공사업소(가공)","기린원당농협두부조합공동사업법인","안동농협더햇식품사업소(가공)","맑은물에홀딩스","한미사이언스","안성식품","한국농협김치조합공동사업법인 화성","한국농협김치조합공동사업법인 경남","한국농협김치조합공동사업법인 연천","한국농협김치조합공동사업법인 전남","한국농협김치조합공동사업 충북지사","한국농협김치조합공동사업법인 파주","한국농협김치조공 전북","푸드웰","영월농협 고춧가루공장(가공)","괴산군조합공동사업법인(가공)","남면농협 농산물가공공장(가공)","오천농협액젓공장(가공)","해리농협 천일염가공사업소(가공)","북신안농협 천일염사업장(판매)","신영","한국양계축산산업협동조합","농업회사법인 늘푸른","농가애"];
+const ITEM_RELATED_DETAIL = {
+  "111": [["양준영",[["농협 국산멸치 쌀국수 92g (컵)","8801448535497",0,1],["농협 멸치쌀국수 92g (97.7%)","8801448756083",1,1],["농협 얼큰한맛 쌀국수 92g (컵)","8801448535473",0,1],["농협 우리쌀국수 시원멸치맛 92g","8801448535459",0,1],["농협 우리쌀국수 얼큰한맛 92g","8801448535442",0,1],["농협 짬뽕쌀국수 97g","8801448760998",2,1],["농협 철원오대쌀 떡국163g","8801448410855",3,1],["농협 파곰탕쌀국수 96g","8801448755437",1,1]]],["양준영",[["농협 구수한 옛날 누룽지 1kg","8801448752894",4,1],["농협 구수한 옛날 누룽지 450g","8801448752887",4,1],["농협 밥심 보리누룽지150g","8801448430945",5,1],["농협 밥심 쌀누룽지 150g","8801448377110",5,1],["농협 밥심 쌀누룽지 700g","8801448377097",5,1],["농협 밥심 현미누룽지 150g","8801448377103",5,1],["농협 현미누룽지 700g","8801448763111",5,1]]],["양준영",[["농협 우리쌀 떡국떡 700g","8801448328198",6,1],["농협 우리쌀 떡볶이떡 400g","8801448328204",6,1],["농협 우리쌀 조랭이떡 400g","8801448389601",6,1],["농협 통가래떡 400g","8801448756496",7,1],["농협 햅쌀떡국떡 500g","8801448491601",7,1]]]],
+  "141": [["김시라",[["(대외) 농협국산콩두부 부침찌개겸용 300g*2","TR282582",8,0],["(대외)농협국산콩두부(부침용) 300g*2","TR282575",8,0],["농협 고소한 연두부 240g","8801448282599",9,0],["농협 부드러운 순두부 350g","8801448282605",9,0],["농협 생명땅안동 국산콩두부 210g","8801448466043",9,0],["농협 우리콩 두부면(넓은면) 100g","8801448540323",10,0],["농협 우리콩 두부면(얇은면) 100g","8801448540316",10,0],["농협 한국농협두부 국산콩 두부 300g*2","8801448542518",10,0],["농협 한국농협두부 국산콩 두부 500g","8801448542501",8,0],["농협 한국농협두부 국산콩 부침용두부 300g","8801448543348",9,0],["농협 한국농협두부 국산콩 찌개용두부 300g","8801448543331",8,0],["농협국산콩두부 부침용 300g*2","8801448282575",9,0],["농협국산콩두부 부침찌개용 300g*2","8801448282582",8,0]]],["장명은",[["(대외)농협 국산콩100 검은콩두유 190ml","8801448160033",11,1],["농협 국산콩 통째로 검은콩 17곡두유 190ml*16","8801448474420",11,1],["농협 국산콩 통째로 검은콩 17곡두유 190ml*24","8801448415683",11,1],["농협 국산콩 통째로 검은콩 17곡두유 190ml*24입<식>","8801448535428",11,1],["농협 국산콩 통째로 검은콩두유 190ml*16입(1+1)","8801448372009",11,1],["농협 국산콩 통째로 검은콩두유 190ml*24입","8801448371965",11,1],["농협 국산콩 통째로 검은콩두유 190ml*24입<식>","8801448282179",11,1],["농협 국산콩 통째로 고칼슘두유 190ml*16입(1+1)","8801448371958",11,1],["농협 국산콩 통째로 고칼슘두유 190ml*24","8801448372054",11,1],["농협 국산콩 통째로 고칼슘두유 190ml*24입<식>","8801448535435",11,1]]],["김시라",[["농협 국산콩 콩국물 320g","8801448302419",8,1],["농협 국산콩 콩비지 300g","8801448404564",8,0]]]],
+  "151": [["김시라",[["(수출)농협 군고구마 말랭이 3입","G190003",7,1],["(수출용)농협 군고구마말랭이 1입","G190004",7,1],["농협 군고구마말랭이 50g","8801448335257",7,1],["농협 군고구마말랭이 50g*4입","8801448508965",7,1],["농협아름찬 군고구마말랭이 50g*3입","8801448335240",7,1,""]]],["양준영",[["농협 제대로 만든 국산 자른당면 300g","8801448366121",12,1],["농협 제대로 만든 국산 전통당면 400g","8801448366114",12,1]]]],
+  "211": [["김시라",[["(수출)한국농협김치 썰은배추김치 200g","G240023",13,1],["(수출)한국농협김치 썰은배추김치 300g(용기)","G240025",14,1],["(수출)한국농협김치 썰은배추김치 400g","G230027",13,1],["(수출)한국농협김치 썰은배추김치 400g","G240024",13,1],["(수출)한국농협김치 썰은배추김치 80g(낱봉)","G240022",13,1],["(수출)한국농협김치 썰은배추김치 80g*5입","G230031",13,1],["(온라인)한국농협김치 묵은지 5kg","277349",15,0],["(온라인)한국농협김치 백김치 5kg","277345",16,0],["(온라인)한국농협김치 포기김치 10kg","277362",16,0],["(온라인)한국농협김치 포기김치 3kg","8801448365162",16,0],["(온라인)한국농협김치 포기김치 5kg","277361",16,0],["(온라인)한국농협김치 포기김치 8kg","277360",16,0],["한국농협김치 김장키트 중부식세트(절임배추+중부식양념) 10kg","8801448542860",17,0],["한국농협김치 묵은지 400g","8801448492394",18,1],["한국농협김치 백김치 500g","8801448753587",17,1],["한국농협김치 썰은배추김치 1.8kg","8801448497887",14,0],["한국농협김치 썰은배추김치 200g","8801448497801",13,1],["한국농협김치 썰은배추김치 300g(용기)","8801448534506",14,1],["한국농협김치 썰은배추김치 400g","8801448497849",13,1],["한국농협김치 썰은배추김치 80g(낱봉)","8801448500006",13,1],["한국농협김치 썰은배추김치 80g*5입","8801448500020",13,1],["한국농협김치 썰은배추김치 900g","8801448492400",14,0],["한국농협김치 어린이 한입애착 배추김치 300g","8801448535312",17,1],["한국농협김치 어린이 한입애착 백김치 300g","8801448535299",17,1],["한국농협김치 우리땅 포기김치 5kg","8801448767539",17,0],["한국농협김치 우리땅 포기김치 8kg","8801448767522",17,0],["한국농협김치 잘 익힌 포기김치 2.5kg","8801448539808",17,0],["한국농협김치 전라도 썰은배추김치 900g","8801448546547",16,0],["한국농협김치 전라도 포기김치 2.5kg","8801448500013",16,0],["한국농협김치 전라도 포기김치 4.5kg","8801448546530",16,0],["한국농협김치 포기김치 2.5kg","8801448497856",14,0],["한국농협김치 포기김치 4.5kg","8801448528178",17,0],["한국농협김치 포기김치 900g","8801448497832",17,0]]],["김시라",[["농협 한국농협김치 묵은지김치찌개 650g","8801448502178",19,1],["농협 한국농협김치 묵은지김치찜 610g","8801448502161",19,1]]]],
+  "226": [["장명은",[["농협 딸기잼 370g","8801448489547",20,1],["농협 딸기잼 690g","8801448489530",20,1]]]],
+  "248": [["최유희",[["농협 태양초 국산고춧가루 120g(양념용)","8801448399419",21,0],["농협 태양초 국산고춧가루 130g(국물용)","8801448399426",21,0],["농협100 아름찬 국산고춧가루(매운맛) 1kg","8801448400054",22,0],["농협100 아름찬 국산고춧가루(매운맛) 2kg","8801448400030",22,0],["농협100 아름찬 국산고춧가루(보통맛) 1kg","8801448400061",22,0],["농협100 아름찬 국산고춧가루(보통맛) 2kg","8801448400047",22,0]]]],
+  "312": [["최유희",[["농협 국산참기름 150ml","8801448372092",23,1],["농협 국산참기름 300ml","8801448372115",23,1]]],["최유희",[["농협 가마솥국산볶음참깨 120g","8801448402744",21,1]]]],
+  "313": [["최유희",[["농협 국산들기름 150ml","8801448372085",23,1],["농협 국산들기름 300ml","8801448372108",23,1]]]],
+  "651": [["최유희",[["농협 멸치액젓 1kg(국산)","8801448339347",24,1],["농협 멸치액젓 2.1kg(국산)","8801448339330",24,1],["농협 멸치액젓 500g(국산)","8801448339354",24,1],["농협 멸치액젓 5kg(국산)","8801448339323",24,1],["농협 멸치액젓 9kg(국산)","8801448339316",24,1]]]],
+  "652": [["최유희",[["농협 아름찬 명품천일염 구운소금 250g(병)","8801448335165",25,1],["농협 아름찬 명품천일염 굵은소금 3kg","8801448297593",25,0],["농협 아름찬 신안천일염 탈수염 10kg","8801448296091",26,0],["농협 아름찬 신안천일염 탈수염 20kg","8801448296121",26,0],["농협100 명품천일염 가는소금 1kg","8801448453920",25,0],["농협100 명품천일염 가는소금 500g","8801448453913",25,0],["농협아름찬 명품천일염 구운소금 1kg","8801448292925",25,1],["농협아름찬 명품천일염 구운소금 500g","8801448453906",25,1],["농협아름찬 명품천일염 굵은소금 1kg","8801448292918",25,0],["농협아름찬 명품천일염 굵은소금 5kg","8801448292888",25,0],["농협아름찬 명품천일염 꽃소금 1kg","8801448292901",27,0],["농협아름찬 명품천일염 꽃소금 3kg","8801448292895",27,0]]]],
+  "9903": [["서미애",[["농협 고소한 구운란 20구","8801448758056",28,1],["농협 맥반석 구운란 2구 60g","8801448543003",29,1]]]],
+  "9905": [["김시라",[["농협 달콤밤 52g","8801448478695",30,1],["농협 달콤밤 52g*4입","8801448508972",30,1]]]],
+};
+function relatedItemsFor(code, idx) {
+  const detail = ITEM_RELATED_DETAIL[CODE_ALIAS[code] || code];
+  if (!detail || !detail[idx]) return { manager: '', items: [] };
+  const [manager, items] = detail[idx];
+  return { manager, items };
+}
+function relatedProductsHtml(code) {
+  const rel = ITEM_RELATED_PRODUCTS[code];
+  if (!rel) return '';
+  const chips = rel.cats.map(([cat, n], idx) => `<span class="related-chip" data-code="${code}" data-idx="${idx}">${cat} ${n}</span>`).join('<span class="related-divider"></span>');
+  return `<div class="alert-row-related" style="--item-color:${itemColor(code)};"><span class="related-label">💡 이런 품목을 검토해보세요</span>${chips}</div>`;
+}
+function openRelatedModal(code, idx) {
+  const rel = ITEM_RELATED_PRODUCTS[code];
+  const cat = rel && rel.cats[idx] ? rel.cats[idx][0] : '';
+  const total = rel && rel.cats[idx] ? rel.cats[idx][1] : 0;
+  const { manager, items } = relatedItemsFor(code, idx);
+  const rows = items.map(([n, b, v, t, m]) => `<tr><td class="nowrap">${b}</td><td>${n}</td><td class="nowrap">${VENDORS[v] || ''}</td><td class="nowrap">${t ? '과세' : '면세'}</td><td class="nowrap">${m || manager}</td></tr>`).join('');
+  openAppModal(`${cat} 관련 품목 (${total}개)`, `<table class="amt"><thead><tr><th>바코드번호</th><th>품목명</th><th>구매처</th><th>면과세</th><th>담당자</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function ensureAppModal() {
+  if (document.getElementById('amOv')) return;
+  document.querySelector('.viz-root').insertAdjacentHTML('beforeend', `<div id="amOv" class="amv"><div class="am" id="amBx" role="dialog" aria-modal="true"><div class="amh" id="amDg"><span id="amTi"></span><button id="amCl" class="amx" aria-label="닫기">✕</button></div><div class="amb" id="amBo"></div></div></div>`);
+  document.getElementById('amOv').addEventListener('click', e => { if (e.target.id === 'amOv') closeAppModal(); });
+  document.getElementById('amCl').addEventListener('click', closeAppModal);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAppModal(); });
+  const box = document.getElementById('amBx');
+  const drag = document.getElementById('amDg');
+  let on = false, sx = 0, sy = 0, bx = 0, by = 0;
+  drag.addEventListener('mousedown', e => {
+    if (e.target.closest('.amx')) return;
+    on = true;
+    const r = box.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; bx = r.left; by = r.top;
+    box.style.transform = 'none';
+    box.style.left = bx + 'px'; box.style.top = by + 'px'; box.style.right = 'auto';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!on) return;
+    const maxX = window.innerWidth - box.offsetWidth - 4, maxY = window.innerHeight - box.offsetHeight - 4;
+    box.style.left = Math.max(4, Math.min(bx + (e.clientX - sx), maxX)) + 'px';
+    box.style.top = Math.max(4, Math.min(by + (e.clientY - sy), maxY)) + 'px';
+  });
+  document.addEventListener('mouseup', () => { on = false; });
+}
+function openAppModal(title, bodyHtml) {
+  ensureAppModal();
+  document.getElementById('amTi').textContent = title;
+  document.getElementById('amBo').innerHTML = bodyHtml;
+  document.getElementById('amOv').classList.add('open');
+}
+function closeAppModal() {
+  const ov = document.getElementById('amOv');
+  if (ov) ov.classList.remove('open');
+}
+// 관심 품목(즐겨찾기) — 브라우저(localStorage)에만 저장, 기기/브라우저별로 별도 관리됨
+const WATCH_KEY = 'nh_price_watchlist_v1';
+function getWatchSet() {
+  try {
+    const raw = localStorage.getItem(WATCH_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) { return new Set(); }
+}
+function saveWatchSet(set) {
+  try { localStorage.setItem(WATCH_KEY, JSON.stringify([...set])); } catch (e) {}
+}
+function isWatched(code) { return getWatchSet().has(code); }
+function toggleWatch(code) {
+  const set = getWatchSet();
+  if (set.has(code)) set.delete(code); else set.add(code);
+  saveWatchSet(set);
+  const active = set.has(code);
+  document.querySelectorAll(`.watch-star[data-code="${code}"]`).forEach(el => {
+    el.classList.toggle('active', active);
+    el.innerHTML = `${active ? '★' : '☆'} 즐겨찾기`;
+    el.title = `관심 품목 ${active ? '해제' : '추가'}`;
+    el.setAttribute('aria-label', `관심 품목 ${active ? '해제' : '추가'}`);
+  });
+  buildWatchSection();
+}
+function watchStarHtml(code) {
+  const active = isWatched(code);
+  return `<button type="button" class="watch-star${active ? ' active' : ''}" data-code="${code}" title="관심 품목 ${active ? '해제' : '추가'}" aria-label="관심 품목 ${active ? '해제' : '추가'}" onclick="event.preventDefault(); event.stopPropagation(); toggleWatch('${code}');">${active ? '★' : '☆'} 즐겨찾기</button>`;
+}
+function itemNameBadge(code, item) {
+  const color = itemColor(code);
+  return `<span class="item-name" style="--item-color:${color};"><span class="dot"></span>${item.name}</span>`;
+}
+
+// 품목별 라인아트 아이콘 (viewBox 0 0 48 48, 공통 스타일: stroke=currentColor, 굴림 캡/조인)
+const ICON_PATHS = {
+  '141': '<path d="M14,24 C14,14 21,9 28,11 C36,13 38,21 36,28 C34,36 26,41 18,38 C12,36 11,30 14,24 Z"/><circle cx="19" cy="19" r="3.1" fill="currentColor" stroke="none"/><circle cx="25.5" cy="25" r="3.1" fill="currentColor" stroke="none"/><circle cx="21" cy="32" r="3.1" fill="currentColor" stroke="none"/>',
+  '151': '<path d="M14,22 C9,27 9,34 15,38 C22,42 34,40 39,32 C43,25 37,16 28,16 C22,16 17,17 14,22 Z"/><path d="M25,16 Q23,10 21,7"/><path d="M31,16 Q33,10 35,8"/>',
+  '211': '<path d="M8,30 Q8,13 24,9 Q40,13 40,30 Q40,39 24,41 Q8,39 8,30 Z"/><path d="M13,27 Q24,18 35,27"/><path d="M15,34 Q24,27 33,34"/>',
+  '248': '<path d="M28,8 L23,13"/><path d="M20,13 Q23,10 27,11"/><ellipse cx="25" cy="27" rx="8" ry="15" transform="rotate(18 25 27)"/>',
+  '248D': '<path d="M28,8 L23,13"/><path d="M20,13 Q23,10 27,11"/><ellipse cx="25" cy="27" rx="8" ry="15" transform="rotate(18 25 27)"/>',
+  '312': '<path d="M24,8 L24,41"/><ellipse cx="18" cy="16" rx="4" ry="7" transform="rotate(-25 18 16)"/><ellipse cx="30" cy="16" rx="4" ry="7" transform="rotate(25 30 16)"/><ellipse cx="18" cy="27" rx="4" ry="7" transform="rotate(-25 18 27)"/><ellipse cx="30" cy="27" rx="4" ry="7" transform="rotate(25 30 27)"/>',
+  '313': '<path d="M24,10 C34,12 40,21 34,31 C30,39 18,39 14,31 C8,21 14,12 24,10 Z"/><path d="M24,14 L24,35"/><path d="M24,19 L18,25"/><path d="M24,19 L30,25"/><path d="M24,39 L24,43"/>',
+  '9903': '<path d="M24,8 C32,8 38,20 38,29 C38,38 32,42 24,42 C16,42 10,38 10,29 C10,20 16,8 24,8 Z"/><path d="M17,17 Q19,14 23,14"/>',
+  '651': '<path d="M8,24 C14,15 30,15 38,24 C30,33 14,33 8,24 Z"/><path d="M38,24 L44,17 L44,31 Z"/><circle cx="15" cy="22" r="1.6" fill="currentColor" stroke="none"/><path d="M20,24 Q26,26 32,24"/>',
+  '652': '<rect x="15" y="18" width="18" height="21" rx="7"/><path d="M20,18 L20,11 Q20,8 24,8 Q28,8 28,11 L28,18"/><circle cx="21.5" cy="12.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="26.5" cy="12.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="24" cy="15.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="23" cy="43" r="1" fill="currentColor" stroke="none"/><circle cx="27" cy="44.5" r="1" fill="currentColor" stroke="none"/><circle cx="25" cy="41" r="1" fill="currentColor" stroke="none"/>',
+  '9905': '<path d="M14,21 C9,29 12,38 24,40 C36,38 39,29 34,21 C30,13 18,13 14,21 Z"/><path d="M20,13 L28,13"/><path d="M24,8 L24,16"/><path d="M18,16 L30,16"/>',
+  '111': '<path d="M10,26 Q10,38 24,38 Q38,38 38,26 Z"/><path d="M8,26 L40,26"/><ellipse cx="18" cy="21" rx="3.2" ry="1.7" transform="rotate(-15 18 21)"/><ellipse cx="24" cy="19" rx="3.2" ry="1.7"/><ellipse cx="30" cy="21" rx="3.2" ry="1.7" transform="rotate(15 30 21)"/>',
+  '226': '<path d="M14,18 C14,14 34,14 34,18 C36,26 30,39 24,41 C18,39 12,26 14,18 Z"/><path d="M18,16 L15,10"/><path d="M24,15 L24,8"/><path d="M30,16 L33,10"/><circle cx="19" cy="23" r="1.1" fill="currentColor" stroke="none"/><circle cx="27" cy="21" r="1.1" fill="currentColor" stroke="none"/><circle cx="21" cy="30" r="1.1" fill="currentColor" stroke="none"/><circle cx="28" cy="28" r="1.1" fill="currentColor" stroke="none"/><circle cx="24" cy="34" r="1.1" fill="currentColor" stroke="none"/>',
+};
+const DEFAULT_ICON_PATH = '<circle cx="24" cy="24" r="15"/>';
+function itemIconSvg(code) {
+  const inner = ICON_PATHS[code] || DEFAULT_ICON_PATH;
+  return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+function cardIconHtml(code) {
+  return `<div class="card-icon" style="--item-color:${itemColor(code)};">${itemIconSvg(code)}</div>`;
+}
+function tableIconHtml(code) {
+  return `<span class="table-icon" style="--item-color:${itemColor(code)};">${itemIconSvg(code)}</span>`;
+}
+
+function badgeHtml(item) {
+  if (item.alert === '급등') return `<span class="badge badge-critical">▲ 급등</span>`;
+  if (item.alert === '급락') return `<span class="badge badge-drop">▼ 급락</span>`;
+  return `<span class="badge badge-normal">정상</span>`;
+}
+
+// 전년동기 대비 등락폭 신호등: ±10% 이내 정상 / ±10~20% 주의 / -20% 초과 급락 / +20% 초과 급등
+function yoyLightTier(pct) {
+  if (pct == null) return 'ok';
+  if (pct >= 20) return 'crit-up';
+  if (pct <= -20) return 'crit';
+  if (pct >= 10 || pct <= -10) return 'warn';
+  return 'ok';
+}
+function yoyLightHtml(item) {
+  const tier = yoyLightTier(item.yoy_chg_pct);
+  const label = tier === 'crit-up' ? '급등' : (tier === 'crit' ? '급락' : (tier === 'warn' ? '주의' : '정상'));
+  const cls = tier === 'crit-up' ? 'yoy-crit-up' : (tier === 'crit' ? 'yoy-crit' : (tier === 'warn' ? 'yoy-warn' : 'yoy-ok'));
+  return `<span class="yoy-light ${cls}"><span class="dot"></span>전년比 ${label}</span>`;
+}
+
+// 조사일 기준 가격동향 조사 상세 팝업 (호버) — 카드에 이미 표시된 값과 동일한 원본 조사 데이터 기준
+function infoPopupHtml(item) {
+  if (item.detail_min_price == null) return '';
+  const priceRange = item.detail_min_price === item.detail_max_price
+    ? `${fmtPrice(item.detail_min_price)}원`
+    : `${fmtPrice(item.detail_min_price)} ~ ${fmtPrice(item.detail_max_price)}원`;
+  // 실제 <a href target="_blank">로 이동시켜 window.open() 트리거 방식보다 안정적으로 새 탭이 열리도록 함
+  // (팝업 블로커·이벤트 타이밍 이슈 없이 브라우저 네이티브 동작으로 처리)
+  const kreiRow = item.krei_url
+    ? `<a class="info-krei" href="${item.krei_url}" target="_blank" rel="noopener noreferrer">${item.krei_label} 보기 ↗</a>`
+    : '';
+  return `
+    <span class="info-wrap">
+      <span class="info-icon" tabindex="0">가격 동향 확인</span>
+      <span class="info-popup">
+        <span class="info-row"><span class="info-label">조사일</span><span>${fmtDate(item.latest_date)}</span></span>
+        <span class="info-row"><span class="info-label">조사 범위</span><span>${priceRange}</span></span>
+        <span class="info-row"><span class="info-label">조사 시장</span><span>${item.detail_market}</span></span>
+        <span class="info-row"><span class="info-label">품종/등급</span><span>${item.detail_variety} · ${item.detail_grade}</span></span>
+        <span class="info-row"><span class="info-label">분류</span><span>${item.detail_category} · ${item.detail_basis_name}</span></span>
+        ${kreiRow}
+      </span>
+    </span>`;
+}
+
+function render() {
+  const grid = document.getElementById('cardGrid');
+  const tbody = document.getElementById('tableBody');
+  const alerts = [];
+  const yoyCritList = [];
+  const yoySurgeList = [];
+  let latestDate = '';
+
+  dataEntries().forEach(([code, item]) => {
+    if (item.latest_date > latestDate) latestDate = item.latest_date;
+    if (item.alert) alerts.push({ ...item, code });
+
+    const yoyTier = yoyLightTier(item.yoy_chg_pct);
+    // 급등(가격 상승, 전주 급등이든 전년동기 급등이든) = 레드 네온 강조, 급락(가격 하락, 전주 급락이든 전년동기 급락이든) = 블루 네온 강조
+    const isSurge = item.alert === '급등' || yoyTier === 'crit-up';
+    const isDrop = item.alert === '급락' || yoyTier === 'crit';
+    const cardClass = isSurge ? 'surge-glow' : (isDrop ? 'drop-glow' : '');
+    // 카드는 <a href>가 아닌 <div>로 만들고, 출처 이동은 JS 클릭 핸들러로만 처리한다.
+    // (별표 버튼처럼 원래는 별개의 클릭이어야 할 요소가 <a> 태그의 네이티브 클릭 기본 동작에
+    //  실수로 걸려 넘어가는 것을 원천적으로 막기 위함 — preventDefault만으로는 100% 보장되지 않음)
+    const card = document.createElement('div');
+    card.className = `card ${cardClass}`;
+    card.id = `card-${code}`;
+    card.dataset.name = item.name;
+    if (item.source_url) {
+      card.style.cursor = 'pointer';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'link');
+      const goToSource = () => window.open(item.source_url, '_blank', 'noopener,noreferrer');
+      card.addEventListener('click', e => {
+        if (e.target.closest('.watch-star')) return;
+        goToSource();
+      });
+      card.addEventListener('keydown', e => {
+        if (e.target.closest('.watch-star')) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToSource(); }
+      });
+    }
+    // 카드 하단 "출처 원본 데이터 보기"는 실제 <a href target="_blank">로 만들어 브라우저
+    // 네이티브 동작으로 확실히 새 탭이 열리도록 한다(클릭 시 stopPropagation으로 카드 전체의
+    // window.open 리스너가 중복 실행되지 않게 함). source_url이 없으면 기존처럼 일반 텍스트로 둔다.
+    const sourceHintHtml = item.source_url
+      ? `<a class="source-hint" href="${item.source_url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">출처 원본 데이터 보기 ↗</a>`
+      : `<div class="source-hint">출처 원본 데이터 보기 ↗</div>`;
+    card.innerHTML = `
+      <div class="card-body">
+        ${cardIconHtml(code)}
+        <div class="card-main">
+          <div class="card-top">
+            <div>
+              ${itemNameBadge(code, item)}${infoPopupHtml(item)}
+              <div class="basis-tag">${item.basis} · ${fmtDate(item.latest_date)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${watchStarHtml(code)}
+              ${badgeHtml(item)}
+            </div>
+          </div>
+          <div class="price-row">
+            <span class="price">${fmtPrice(item.latest_price)}</span>
+            <span class="unit">원 / ${item.unit}</span>
+          </div>
+          <div class="chg-row">
+            <span class="chg ${chgClass(item.week_chg_pct ?? 0)}"><span class="chg-label">전주</span>${item.week_chg_pct != null ? fmtPct(item.week_chg_pct) : '-'}</span>
+            <span class="chg ${chgClass(item.month_chg_pct ?? 0)}"><span class="chg-label">전월</span>${item.month_chg_pct != null ? fmtPct(item.month_chg_pct) : '-'}</span>
+          </div>
+          <div class="chg-row" style="margin-top:-4px; justify-content:space-between; align-items:center; flex-wrap:wrap; row-gap:4px;">
+            <span class="chg ${chgClass(item.yoy_chg_pct ?? 0)}"><span class="chg-label">전년동기${item.yoy_date ? `('${item.yoy_date.slice(2,4)}.${item.yoy_date.slice(4,6)}.${item.yoy_date.slice(6,8)})` : ''}</span>${item.yoy_chg_pct != null ? fmtPct(item.yoy_chg_pct) : '-'}</span>
+            ${yoyLightHtml(item)}
+          </div>
+          ${sparkline(item.points, item.yoy_points)}
+          <div class="spark-caption">${sparkCaption(item.points, item.yoy_points)}</div>
+          ${sourceHintHtml}
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+
+    const tr = document.createElement('tr');
+    tr.dataset.name = item.name;
+    if (isDrop) tr.classList.add('row-plunge');
+    if (isSurge) tr.classList.add('row-surge');
+    // 행 전체를 클릭해도 출처로 이동(위 원물 카드와 동일한 효과). 품목명 셀은 실제 <a href target="_blank">로
+    // 감싸 팝업 차단 등 없이 브라우저 네이티브 동작으로 확실히 새 탭이 열리도록 하고(클릭 시 stopPropagation으로
+    // 행의 window.open이 중복 실행되지 않게 함), 나머지 셀 클릭은 행 리스너의 window.open으로 처리한다.
+    if (item.source_url) { tr.style.cursor = 'pointer'; tr.addEventListener('click', () => window.open(item.source_url, '_blank', 'noopener')); }
+    const nameCell = item.source_url
+      ? `<a class="row-source-link" href="${item.source_url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">${tableIconHtml(code)}${itemNameBadge(code, item)} <span style="color:var(--text-muted); font-size:11px;">↗</span></a>`
+      : `${tableIconHtml(code)}${itemNameBadge(code, item)}`;
+    tr.innerHTML = `
+      <td>${nameCell}</td>
+      <td style="text-align:left; color:var(--text-muted); font-size:12px;">${item.basis}</td>
+      <td>${fmtDate(item.latest_date)}</td>
+      <td>${fmtPrice(item.latest_price)}원</td>
+      <td class="${chgClass(item.week_chg_pct ?? 0)}">${item.week_chg_pct != null ? fmtPct(item.week_chg_pct) : '-'}</td>
+      <td class="${chgClass(item.month_chg_pct ?? 0)}">${item.month_chg_pct != null ? fmtPct(item.month_chg_pct) : '-'}</td>
+      <td class="${chgClass(item.yoy_chg_pct ?? 0)}">${item.yoy_chg_pct != null ? fmtPct(item.yoy_chg_pct) : '-'} ${yoyLightHtml(item)}</td>
+      <td>${badgeHtml(item)}</td>
+    `;
+    tbody.appendChild(tr);
+
+    if (yoyLightTier(item.yoy_chg_pct) === 'crit') yoyCritList.push({ ...item, code });
+    if (yoyLightTier(item.yoy_chg_pct) === 'crit-up') yoySurgeList.push({ ...item, code });
+  });
+
+  document.getElementById('metaInfo').textContent = `최근 조사일: ${fmtDate(latestDate)} 기준`;
+
+  const banner = document.getElementById('alertBanner');
+  const bannerItems = [];
+  if (alerts.length) {
+    bannerItems.push(...alerts.map(a => ({ code: a.code, name: a.name, badge: a.alert, detail: `전주 대비 ${fmtPct(a.week_chg_pct)}` })));
+  }
+  if (yoyCritList.length) {
+    bannerItems.push(...yoyCritList.map(a => ({ code: a.code, name: a.name, badge: '급락', detail: `전년동기 대비 ${fmtPct(a.yoy_chg_pct)}` })));
+  }
+  if (yoySurgeList.length) {
+    bannerItems.push(...yoySurgeList.map(a => ({ code: a.code, name: a.name, badge: '급등', detail: `전년동기 대비 ${fmtPct(a.yoy_chg_pct)}` })));
+  }
+  if (bannerItems.length) {
+    banner.classList.add('show');
+    const hasSurge = alerts.some(a => a.alert === '급등') || yoySurgeList.length > 0;
+    banner.classList.remove('banner-surge', 'banner-drop');
+    banner.classList.add(hasSurge ? 'banner-surge' : 'banner-drop');
+    banner.innerHTML = `
+      <div class="alert-banner-head">⚠ 가격 검토 추천</div>
+      <div class="alert-list">${bannerItems.map(b => `
+        <div class="alert-row" data-code="${b.code}">
+          <div class="alert-row-main">
+            ${tableIconHtml(b.code)}
+            <span class="alert-row-name">${b.name}</span>
+            <span class="badge ${b.badge === '급등' ? 'badge-critical' : 'badge-drop'}">${b.badge === '급등' ? '▲' : '▼'} ${b.badge}</span>
+            <span class="alert-row-detail">${b.detail}</span>
+          </div>
+          ${relatedProductsHtml(b.code)}
+        </div>`).join('')}</div>`;
+  }
+
+  attachTooltips();
+  attachInfoPopups();
+  buildUpcomingSeason();
+  buildSeasonHeatmap();
+  buildMonthProcureCallout();
+  buildWatchSection();
+  updateAlarmBadge();
+}
+
+function attachInfoPopups() {
+  document.querySelectorAll('.info-wrap').forEach(wrap => {
+    // clicking anywhere inside the info popup must not trigger the card's own link navigation.
+    // .info-krei is a real <a href target="_blank">, so let the browser handle that click natively
+    // (only stop it from bubbling to the card) instead of calling preventDefault on it.
+    wrap.addEventListener('click', e => {
+      if (e.target.closest('.info-krei')) { e.stopPropagation(); return; }
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+}
+
+// 원물 수매 이슈 탭 렌더링
+function renderNewsTab() {
+  document.getElementById('newsAsOf').textContent = fmtDate(NEWS_AS_OF.replace(/-/g, ''));
+
+  const grid = document.getElementById('newsGrid');
+  grid.innerHTML = '';
+  dataEntries().forEach(([code, item]) => {
+    const news = NEWS_DATA[code] || { signal: null, articles: [] };
+    const card = document.createElement('div');
+    card.className = `news-card ${news.signal ? 'flagged' : ''}`;
+    card.id = `news-${code}`;
+    const headBadge = news.signal
+      ? `<span class="news-signal-badge">⚠ 준비 신호</span>`
+      : `<span class="news-empty-badge">특이사항 없음</span>`;
+    const signalBlock = news.signal ? `<div class="news-signal-text">${news.signal.text}</div>` : '';
+    const articlesBlock = news.articles.length
+      ? `<div class="news-list">${news.articles.map(a => `
+          <div class="news-item">
+            <div class="news-item-meta">${a.date} · ${a.source}</div>
+            <div class="news-item-title"><a href="${a.url}" target="_blank" rel="noopener noreferrer">${a.title}</a></div>
+            <div class="news-item-summary">${a.summary}</div>
+          </div>`).join('')}</div>`
+      : `<div class="news-empty-msg">"${item.name} 수매" 관련 뉴스가 확인되지 않았습니다.</div>`;
+    card.innerHTML = `
+      <div class="news-card-head">
+        <span class="news-icon" style="--item-color:${itemColor(code)};">${itemIconSvg(code)}</span>
+        <div class="news-card-title">
+          ${itemNameBadge(code, item)}
+          ${headBadge}
+        </div>
+      </div>
+      ${signalBlock}
+      ${articlesBlock}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderHikeTab() {
+  document.getElementById('hikeAsOf').textContent = fmtDate(HIKE_NEWS_AS_OF.replace(/-/g, ''));
+  const wrap = document.getElementById('hikeGroups');
+  wrap.innerHTML = HIKE_NEWS_DATA.map(group => `
+    <div class="hike-cat-group">
+      <h3 class="hike-cat-title">${group.cat} <span class="hike-cat-count">${group.items.length}건</span></h3>
+      <div class="hike-grid">
+        ${group.items.map(it => `
+          <div class="hike-card">
+            <div class="hike-card-head">
+              <span class="hike-company">${it.company}</span>
+              <span class="hike-pct-badge">${it.pct}</span>
+            </div>
+            <div class="hike-date">${it.date}</div>
+            <div class="hike-product">${it.product}</div>
+            <div class="hike-summary">${it.summary}</div>
+            <div class="hike-source"><a href="${it.url}" target="_blank" rel="noopener noreferrer">${it.source} ↗</a></div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+const MONTH_KR = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+function buildUpcomingSeason() {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1; // 1-12
+  const lookahead = [1, 2].map(off => ((curMonth - 1 + off) % 12) + 1);
+  const chips = [];
+  dataEntries().forEach(([code, item]) => {
+    if (!item.season_index) return;
+    lookahead.forEach((m, i) => {
+      const isLow = (item.season_low_months || []).includes(m);
+      const isHigh = (item.season_high_months || []).includes(m);
+      if (isLow || isHigh) {
+        chips.push({
+          code,
+          item,
+          month: m,
+          monthsAway: i + 1,
+          type: isLow ? 'low' : 'high',
+          idx: item.season_index[String(m)],
+        });
+      }
+    });
+  });
+  chips.sort((a, b) => a.monthsAway - b.monthsAway || Math.abs(b.idx) - Math.abs(a.idx));
+
+  const section = document.getElementById('seasonCallout');
+  const box = document.getElementById('seasonUpcoming');
+  if (!chips.length) { section.classList.remove('show'); return; }
+  section.classList.add('show');
+  box.innerHTML = chips.map(c => {
+    const icon = c.type === 'low' ? '🔽' : '🔺';
+    const label = c.type === 'low' ? '저가철 예상' : '고가철 예상';
+    return `<span class="season-chip ${c.type}">${itemNameBadge(c.code, c.item)}<span class="season-chip-text">${MONTH_KR[c.month - 1]} ${icon} ${label} (평년比 ${fmtPct(c.idx)})</span></span>`;
+  }).join('');
+}
+
+function buildMonthProcureCallout() {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1; // 1-12
+  const items = dataEntries().filter(([code]) => ((PROCURE_INFO[code] || {}).months || []).includes(curMonth));
+
+  const section = document.getElementById('monthProcureCallout');
+  const title = document.getElementById('monthProcureTitle');
+  const box = document.getElementById('monthProcureChips');
+  if (!items.length) { section.classList.remove('show'); return; }
+  section.classList.add('show');
+  title.textContent = `📅 ${MONTH_KR[curMonth - 1]} 주요 수매(수확) 원물`;
+  box.innerHTML = items.map(([code, item]) => {
+    const info = PROCURE_INFO[code] || {};
+    return `<span class="month-procure-chip">${itemNameBadge(code, item)}<span class="month-procure-chip-text">${info.label || ''}</span></span>`;
+  }).join('');
+}
+
+function buildWatchSection() {
+  const watchSet = getWatchSet();
+  const box = document.getElementById('watchChips');
+  const sidebarList = document.getElementById('watchSidebarList');
+  if (!watchSet.size) {
+    box.innerHTML = `<span class="watch-section-empty">☆ 품목 카드의 별표(즐겨찾기)를 누르면 여기 모아서 볼 수 있어요.</span>`;
+    if (sidebarList) sidebarList.innerHTML = `<span class="watch-sidebar-empty">☆ 품목 카드의 별표(즐겨찾기)를 누르면 여기 모아서 볼 수 있어요.</span>`;
+    return;
+  }
+  const items = dataEntries().filter(([code]) => watchSet.has(code));
+  box.innerHTML = items.map(([code, item]) => {
+    const chg = item.week_chg_pct != null ? fmtPct(item.week_chg_pct) : '-';
+    return `<span class="watch-chip" data-code="${code}" title="클릭하면 관심 품목에서 제외됩니다">${itemNameBadge(code, item)}<span class="watch-chip-text">${fmtPrice(item.latest_price)}원 · 전주 ${chg}</span></span>`;
+  }).join('');
+  if (sidebarList) {
+    sidebarList.innerHTML = items.map(([code, item]) => {
+      const yoyChg = item.yoy_chg_pct != null ? fmtPct(item.yoy_chg_pct) : '-';
+      return `<div class="watch-sidebar-item" data-code="${code}">
+        <div class="watch-sidebar-info">
+          <span class="watch-sidebar-name">${itemNameBadge(code, item)}</span>
+          <span class="watch-sidebar-price">${fmtPrice(item.latest_price)}원 · 전년동기 ${yoyChg}</span>
+        </div>
+        <button type="button" class="watch-sidebar-remove" data-code="${code}" title="관심 품목 해제" aria-label="관심 품목 해제">✕</button>
+      </div>`;
+    }).join('');
+  }
+}
+
+// 급등/급락 알림 팝업용: 전주 급등락 배지 + 전년동기 급등락(신호등 crit/crit-up)을 한번에 수집
+function collectAlertItems() {
+  const items = [];
+  dataEntries().forEach(([code, item]) => {
+    if (item.alert === '급등' || item.alert === '급락') {
+      items.push({ code, item, badge: item.alert, detail: `전주 대비 ${fmtPct(item.week_chg_pct)}` });
+    }
+    const tier = yoyLightTier(item.yoy_chg_pct);
+    if (tier === 'crit') items.push({ code, item, badge: '급락', detail: `전년동기 대비 ${fmtPct(item.yoy_chg_pct)}` });
+    if (tier === 'crit-up') items.push({ code, item, badge: '급등', detail: `전년동기 대비 ${fmtPct(item.yoy_chg_pct)}` });
+  });
+  return items;
+}
+
+function buildAlarmContent() {
+  const watchSet = getWatchSet();
+  const alertItems = collectAlertItems();
+  const rowHtml = a => {
+    const isSurge = a.badge === '급등';
+    return `
+    <div class="alarm-popup-row ${isSurge ? 'is-surge' : 'is-drop'}">
+      <span>${itemNameBadge(a.code, a.item)}</span>
+      <span class="yoy-light ${isSurge ? 'yoy-crit-up' : 'yoy-crit'}"><span class="dot"></span>${isSurge ? '▲' : '▼'} ${a.badge} · ${a.detail}</span>
+    </div>`;
+  };
+
+  let html = '';
+  if (watchSet.size) {
+    const watchedAlerts = alertItems.filter(a => watchSet.has(a.code));
+    html += `<div class="alarm-popup-section">
+      <div class="alarm-popup-title">⭐ 내 관심 품목 알림</div>
+      ${watchedAlerts.length ? watchedAlerts.map(rowHtml).join('') : '<div class="alarm-popup-empty">관심 품목 중 특별한 가격 변동이 없습니다.</div>'}
+    </div>`;
+  }
+  html += `<div class="alarm-popup-section">
+    <div class="alarm-popup-title">⚠ 전체 급등·급락 품목</div>
+    ${alertItems.length ? alertItems.map(rowHtml).join('') : '<div class="alarm-popup-empty">현재 특별한 가격 변동이 없습니다.</div>'}
+  </div>`;
+  if (!watchSet.size) {
+    html += `<div class="alarm-popup-hint">☆ 품목 카드의 별 아이콘을 눌러 관심 품목으로 등록하면 여기서 따로 모아볼 수 있어요.</div>`;
+  }
+  return html;
+}
+
+function updateAlarmBadge() {
+  const badge = document.getElementById('alarmBadge');
+  if (!badge) return;
+  const n = collectAlertItems().length;
+  if (n > 0) { badge.textContent = n > 9 ? '9+' : String(n); badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+function openAlarmPopup() {
+  openAppModal('🔔 가격 알림', buildAlarmContent());
+}
+
+// 특별한 가격 변동이 있으면 새로고침할 때마다 매번 자동으로 팝업 표시
+function maybeAutoPopupAlarm() {
+  try {
+    if (collectAlertItems().length === 0) return;
+    openAlarmPopup();
+  } catch (e) {}
+}
+
+function seasonIntensity(pct) {
+  const capped = Math.min(Math.abs(pct), 30);
+  return 8 + (capped / 30) * 62; // 8~70%
+}
+function seasonColor(pct) {
+  if (pct == null) return 'transparent';
+  const hue = pct < 0 ? 'var(--series-1)' : 'var(--status-critical)';
+  return `color-mix(in srgb, ${hue} ${seasonIntensity(pct).toFixed(0)}%, var(--surface-1))`;
+}
+function seasonTextColor(pct) {
+  if (pct == null) return 'var(--text-muted)';
+  return seasonIntensity(pct) >= 40 ? '#ffffff' : 'var(--text-primary)';
+}
+
+function buildSeasonHeatmap() {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const table = document.getElementById('seasonHeatmap');
+  const thead = '<thead><tr><th>품목</th>' +
+    MONTH_KR.map((m, i) => `<th class="${i + 1 === curMonth ? 'cur-month' : ''}">${m}</th>`).join('') +
+    '</tr></thead>';
+  const rows = dataEntries().filter(([, it]) => it.season_index).map(([code, item]) => {
+    const procureMonths = (PROCURE_INFO[code] || {}).months || [];
+    const cells = MONTH_KR.map((_, i) => {
+      const m = i + 1;
+      const pct = item.season_index[String(m)];
+      const bg = seasonColor(pct);
+      const color = seasonTextColor(pct);
+      const isProcure = procureMonths.includes(m);
+      const cls = [m === curMonth ? 'cur-month' : '', isProcure ? 'procure-m' : ''].filter(Boolean).join(' ');
+      const label = pct != null ? fmtPct(pct) : '-';
+      const titleSuffix = isProcure ? ' · 주요 수매(수확) 시기' : '';
+      return `<td class="${cls}" style="background:${bg}; color:${color};" title="${item.name} ${MONTH_KR[i]} 평년比 ${label}${titleSuffix}">${label}</td>`;
+    }).join('');
+    return `<tr><td>${item.name}</td>${cells}</tr>`;
+  }).join('');
+  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+}
+
+// 품목별 주요 수매(수확) 시기를 1~12월 캘린더 형태로 표시. 각 품목은 한 행을 차지하고,
+// 해당 월에 색이 칠해지며, 연속된 월(예: 9,10월)은 사이 여백/모서리를 없애 하나로 이어
+// 붙인 막대처럼 보이게 하고 그 경계에 작은 화살표(›)를 얹어 "이어짐"을 표시한다.
+// 계란(9903)은 특정 수매 시기가 없는 연중 생산 품목이라 이 캘린더에서는 제외(범례에 안내).
+function buildProcureCalendar() {
+  const wrap = document.getElementById('procureCal');
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+
+  const rows = dataEntries()
+    .map(([code, item]) => ({ code, item, months: (PROCURE_INFO[code] || {}).months || [] }))
+    .filter(({ code, months }) => code !== '9903' && months.length)
+    .sort((a, b) => a.months[0] - b.months[0]);
+
+  let html = '<div class="procal-row procal-head">';
+  html += '<div class="procal-label"></div>';
+  for (let m = 1; m <= 12; m++) {
+    html += `<div class="procal-month-h ${m === curMonth ? 'cur' : ''}">${m}월</div>`;
+  }
+  html += '</div>';
+
+  rows.forEach(({ code, item, months }) => {
+    const active = new Set(months);
+    html += '<div class="procal-row">';
+    html += `<div class="procal-label"><span class="procal-icon" style="--item-color:${itemColor(code)};">${itemIconSvg(code)}</span><span>${item.name}</span></div>`;
+    for (let m = 1; m <= 12; m++) {
+      const isActive = active.has(m);
+      const linksPrev = isActive && active.has(m - 1);
+      const linksNext = isActive && active.has(m + 1);
+      const cls = [
+        'procal-cell',
+        isActive ? 'active' : '',
+        linksPrev ? 'link-prev' : '',
+        linksNext ? 'link-next' : '',
+        m === curMonth ? 'cur' : '',
+      ].filter(Boolean).join(' ');
+      html += `<div class="${cls}" style="--item-color:${itemColor(code)};" title="${item.name} ${m}월${isActive ? ' · 주요 수매(수확) 시기' : ''}"></div>`;
+    }
+    html += '</div>';
+  });
+
+  wrap.innerHTML = html;
+}
+
+function attachTooltips() {
+  const tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('svg.spark').forEach(svg => {
+    const points = JSON.parse(svg.dataset.points);
+    const coords = JSON.parse(svg.dataset.coords);
+    const yoyPoints = JSON.parse(svg.dataset.yoyPoints || '[]');
+    const yoyCoords = JSON.parse(svg.dataset.yoyCoords || '[]');
+    svg.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width * 220;
+      let idx = 0, bestDist = Infinity;
+      coords.forEach((c, i) => {
+        const d = Math.abs(c[0] - relX);
+        if (d < bestDist) { bestDist = d; idx = i; }
+      });
+      const [dateStr, price] = points[idx];
+      let text = `${fmtDate(dateStr)} · ${fmtPrice(price)}원`;
+      if (yoyCoords.length >= 2) {
+        let yIdx = 0, yBest = Infinity;
+        yoyCoords.forEach((c, i) => {
+          const d = Math.abs(c[0] - relX);
+          if (d < yBest) { yBest = d; yIdx = i; }
+        });
+        const [yDateStr, yPrice] = yoyPoints[yIdx];
+        text += ` (전년 동기 ${fmtDate(yDateStr)} · ${fmtPrice(yPrice)}원)`;
+      }
+      tooltip.style.display = 'block';
+      tooltip.style.left = e.clientX + 'px';
+      tooltip.style.top = e.clientY + 'px';
+      tooltip.textContent = text;
+    });
+    svg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  });
+}
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const root = document.documentElement;
+  const cur = root.getAttribute('data-theme');
+  root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+});
+
+function initTabs() {
+  const btns = document.querySelectorAll('.tab-btn');
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('active')) return;
+      btns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tabPanel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+initTabs();
+
+// 상단 경고 배너의 개별 품목을 클릭하면 해당 카드로 스크롤 이동 + 잠깐 플래시로 강조
+document.getElementById('alertBanner').addEventListener('click', e => {
+  const chip = e.target.closest('.related-chip');
+  if (chip) { openRelatedModal(chip.dataset.code, +chip.dataset.idx); return; }
+  const link = e.target.closest('.alert-row');
+  if (!link || !link.dataset.code) return;
+  const card = document.getElementById('card-' + link.dataset.code);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.remove('jump-flash');
+  void card.offsetWidth; // reflow로 애니메이션 재시작
+  card.classList.add('jump-flash');
+  card.addEventListener('animationend', () => card.classList.remove('jump-flash'), { once: true });
+});
+
+const DATA_SOURCE_HTML = `<table class="amt"><thead><tr><th>품목</th><th>가격 기준</th><th>출처</th><th>비고</th></tr></thead><tbody><tr><td>쌀(국산)</td><td>중도매</td><td></td><td>KREI○</td></tr><tr><td>콩(백태/대립종)</td><td>중도매</td><td></td><td>흰콩(국산) 근사·KREI○</td></tr><tr><td>고구마</td><td>중도매</td><td></td><td>-</td></tr><tr><td>배추</td><td>중도매</td><td></td><td>KREI○</td></tr><tr><td>고춧가루(도매·건고추)</td><td>도매(건고추 경락가 중앙값)</td><td>공영도매시장 경매정보</td><td>2026.08 신규·계절캘린더 제외</td></tr><tr><td>고춧가루(소매)</td><td>소매</td><td></td><td>KREI○</td></tr><tr><td>딸기(국산)</td><td>중도매</td><td></td><td>11~5월만 조사·계절캘린더 11~5월만</td></tr><tr><td>참깨</td><td>중도매</td><td></td><td>-</td></tr><tr><td>들깨</td><td>중도매</td><td></td><td>-</td></tr><tr><td>멸치액젓</td><td>소매</td><td></td><td>-</td></tr><tr><td>천일염</td><td>소매</td><td></td><td>-</td></tr><tr><td>계란</td><td>소매</td><td></td><td>KREI○</td></tr><tr><td>밤(국산)</td><td>전국 평균(등급"상")</td><td>산림조합 임산물유통정보</td><td>갱신 불규칙·계절캘린더 제외</td></tr></tbody></table><table class="amt"><thead><tr><th>지표</th><th>기준</th></tr></thead><tbody><tr><td>급등/급락 배지</td><td>전주 대비(5거래일 전) ±15%</td></tr><tr><td>전년동기 신호등</td><td>±10%이내 정상·±10~20% 주의·-20%초과 급락·+20%초과 급등</td></tr><tr><td>이번 달 수매 원물 안내</td><td>품목별 주요 수매(수확) 시기에 이번 달이 포함된 원물</td></tr><tr><td>계절 시세 "평년"</td><td>2021~25 최대·최소 연도 제외 3개년 평균</td></tr><tr><td>저가철/고가철</td><td>연평균 대비 ±8%↑ 이탈 달</td></tr><tr><td>시즌 예고</td><td>다음 1~2개월 내 저가철·고가철 예상 품목</td></tr><tr><td>스파크라인</td><td>최근 조사일 기준 일별 추이(조사주기 따라 상이)</td></tr><tr><td>주요 수매(수확) 시기</td><td>농사로 등 참고(참고용)</td></tr><tr><td>가격동향 확인 아이콘</td><td>조사 범위·시장·품종/등급 상세+KREI 링크</td></tr></tbody></table><div style="color:var(--text-muted);font-size:11px;">출처 공란=aT 공공데이터포털. 지역 서울/가락시장 근사(중도매: 콩·참깨·들깨·배추·고구마·쌀·딸기/소매: 고춧가루(소매)·계란·멸치액젓·천일염-도매 없음). KREI○=한국농촌경제연구원 월간관측보 제공.</div>`;
+document.getElementById('dataSourceBtn').addEventListener('click', () => openAppModal('데이터 출처 및 판단 기준', DATA_SOURCE_HTML));
+document.getElementById('alarmBtn').addEventListener('click', openAlarmPopup);
+document.getElementById('watchChips').addEventListener('click', e => {
+  const chip = e.target.closest('.watch-chip');
+  if (!chip) return;
+  toggleWatch(chip.dataset.code);
+});
+document.getElementById('watchSidebarList').addEventListener('click', e => {
+  const item = e.target.closest('.watch-sidebar-item');
+  if (!item) return;
+  toggleWatch(item.dataset.code);
+});
+
+// 원물명 검색: 카드/상세 테이블을 동시에 필터링
+function initItemSearch() {
+  const input = document.getElementById('itemSearch');
+  const clearBtn = document.getElementById('itemSearchClear');
+  const wrap = input.closest('.item-search-wrap');
+  const grid = document.getElementById('cardGrid');
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('searchEmpty');
+
+  function applyFilter() {
+    const q = input.value.trim().toLowerCase();
+    wrap.classList.toggle('has-value', q.length > 0);
+    let visibleCount = 0;
+    grid.querySelectorAll('.card').forEach(card => {
+      const match = !q || (card.dataset.name || '').toLowerCase().includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    });
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const match = !q || (tr.dataset.name || '').toLowerCase().includes(q);
+      tr.style.display = match ? '' : 'none';
+    });
+    grid.style.display = (q && visibleCount === 0) ? 'none' : '';
+    empty.style.display = (q && visibleCount === 0) ? 'block' : 'none';
+  }
+
+  input.addEventListener('input', applyFilter);
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    applyFilter();
+    input.focus();
+  });
+}
+
+render();
+initItemSearch();
+renderNewsTab();
+renderHikeTab();
+buildProcureCalendar();
+maybeAutoPopupAlarm();
+</script>
+
+</html>
