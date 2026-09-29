@@ -15,9 +15,12 @@ GitHub Actions에서는 repository secrets로 주입한다.
 import os
 import sys
 import json
+import time
 import datetime
 import urllib.request
 import urllib.parse
+import urllib.error
+import http.client
 
 KAMIS_BASE = "http://www.kamis.or.kr/service/price/xml.do"
 
@@ -61,13 +64,20 @@ def fetch_period_product(cert_key, cert_id, cfg, startday, endday):
     }
     url = KAMIS_BASE + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        raw = resp.read().decode("utf-8", errors="replace")
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        print(f"  [WARN] JSON 파싱 실패 (raw 앞부분): {raw[:200]}", file=sys.stderr)
-        return None
+
+    max_retries = 4
+    for attempt in range(1, max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            return json.loads(raw)
+        except (http.client.RemoteDisconnected, ConnectionResetError,
+                urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            wait = 2 ** attempt  # 2,4,8,16초 백오프
+            print(f"  [WARN] 요청 실패({e!r}), {wait}초 후 재시도 ({attempt}/{max_retries})", file=sys.stderr)
+            time.sleep(wait)
+    print(f"  [ERROR] {max_retries}번 재시도 후에도 실패", file=sys.stderr)
+    return None
 
 
 def main():
@@ -113,6 +123,7 @@ def main():
         points = sorted(set(points))
         result[code] = {"name": cfg["name"], "points": points}
         print(f"  -> {len(points)}개 포인트 수집")
+        time.sleep(1.5)  # 품목 간 요청 간격을 둬 서버 측 연결 끊김을 예방
 
     out_path = os.path.join(os.path.dirname(__file__), "..", "data", "kamis_latest.json")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
