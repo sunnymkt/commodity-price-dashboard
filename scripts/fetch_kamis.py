@@ -102,7 +102,20 @@ def main():
         if isinstance(condition, list) and condition and condition[0].get("code") not in (None, "000"):
             print(f"  -> API 오류: {condition}")
             continue
-        items = data.get("data", {}).get("item", [])
+        data_field = data.get("data")
+        if isinstance(data_field, dict):
+            items = data_field.get("item", [])
+        elif isinstance(data_field, list):
+            # 응답이 [{"item": [...]}] 형태이거나 item 리스트 자체가 바로 오는 경우 모두 대응
+            items = []
+            for entry in data_field:
+                if isinstance(entry, dict) and "item" in entry:
+                    entry_items = entry["item"]
+                    items.extend(entry_items if isinstance(entry_items, list) else [entry_items])
+                elif isinstance(entry, dict):
+                    items.append(entry)
+        else:
+            items = []
         if isinstance(items, dict):
             items = [items]
         points = []
