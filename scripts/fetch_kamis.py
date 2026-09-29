@@ -60,7 +60,10 @@ def fetch_period_product(cert_key, cert_id, cfg, startday, endday):
         "p_kindcode": cfg["kindcode"],
         "p_productrankcode": cfg["productrankcode"],
         "p_countrycode": cfg["countrycode"],
-        "p_convert_kg_yn": "Y",
+        # 대시보드 index.html의 DATA 값은 KAMIS 조사 원단위(20kg/40kg 등) 기준으로 저장되고,
+        # 화면에는 프론트엔드(kgDivisor/toKgView)가 자체적으로 1kg 환산을 해서 보여준다.
+        # 여기서 kg 환산본(Y)을 받으면 단위가 어긋나 이중 환산 버그가 생기므로 반드시 N(원단위) 사용.
+        "p_convert_kg_yn": "N",
     }
     url = KAMIS_BASE + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})

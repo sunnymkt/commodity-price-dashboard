@@ -76,9 +76,12 @@ def merge_domestic():
         if not new_points:
             continue
         existing = data[code].get("points", [])
-        merged = {tuple(p) if isinstance(p, list) else p for p in existing}
-        merged.update(new_points)
-        merged_points = sorted(merged)
+        # 날짜(date)를 키로 쓰는 dict 병합 — 같은 날짜가 다시 들어오면 새 값으로 덮어써서
+        # 같은 날짜에 서로 다른 값이 중복 저장되는 일이 없도록 한다.
+        merged = {(p[0] if isinstance(p, list) else p[0]): (p[1] if isinstance(p, list) else p[1]) for p in existing}
+        for d, p in new_points:
+            merged[d] = p
+        merged_points = sorted(merged.items())
         data[code]["points"] = [list(p) for p in merged_points]
 
         latest_date, latest_price = merged_points[-1]
