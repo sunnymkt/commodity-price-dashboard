@@ -114,12 +114,20 @@
 
   .tab-nav {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    margin-bottom: 20px; flex-wrap: wrap;
+    margin-bottom: 20px; flex-wrap: nowrap;
   }
-  .tab-nav-tabs { display: flex; gap: 8px; }
+  .tab-nav-tabs {
+    display: flex; gap: 8px; flex: 1 1 auto; min-width: 0;
+    overflow-x: auto; scrollbar-width: thin;
+  }
   .item-search-wrap {
     position: relative; display: flex; align-items: center;
-    width: 240px; max-width: 100%;
+    width: 240px; max-width: 100%; flex: none;
+  }
+  @media (max-width: 860px) {
+    .tab-nav { flex-wrap: wrap; }
+    .tab-nav-tabs { flex: 1 1 100%; }
+    .item-search-wrap { flex: 1 1 100%; width: 100%; }
   }
   .item-search-icon {
     position: absolute; left: 11px; width: 15px; height: 15px;
