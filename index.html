@@ -23,7 +23,7 @@
     --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7;
     --cat-8: #e34948; --cat-9: #6b7280; --cat-10: #8b5e34;
     --cat-11: #9c8a2e; --cat-12: #c23074;
-    --tab-status: #2a78d6; --tab-season: #0e8a7d; --tab-issue: #c2660a; --tab-hike: #7c3aed;
+    --tab-status: #2a78d6; --tab-season: #0e8a7d; --tab-issue: #c2660a; --tab-hike: #7c3aed; --tab-intl: #0d7d8f;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .viz-root {
@@ -45,7 +45,7 @@
       --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
       --cat-8: #e66767; --cat-9: #9aa4b2; --cat-10: #c68a52;
       --cat-11: #c2ad4c; --cat-12: #de5b93;
-      --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa;
+      --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa; --tab-intl: #22c1d6;
     }
   }
   :root[data-theme="dark"] .viz-root {
@@ -67,7 +67,7 @@
     --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9;
     --cat-8: #e66767; --cat-9: #9aa4b2; --cat-10: #c68a52;
     --cat-11: #c2ad4c; --cat-12: #de5b93;
-    --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa;
+    --tab-status: #3987e5; --tab-season: #2dd4bf; --tab-issue: #f0954a; --tab-hike: #a78bfa; --tab-intl: #22c1d6;
   }
 
   * { box-sizing: border-box; }
@@ -173,6 +173,7 @@
   .tab-btn[data-tab="season"] { --tab-color: var(--tab-season); }
   .tab-btn[data-tab="issue"] { --tab-color: var(--tab-issue); }
   .tab-btn[data-tab="hike"] { --tab-color: var(--tab-hike); }
+  .tab-btn[data-tab="intl"] { --tab-color: var(--tab-intl); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -188,15 +189,12 @@
     white-space: nowrap;
   }
   .zone-badge-domestic { color: var(--tab-status); background: color-mix(in srgb, var(--tab-status) 16%, transparent); }
-  .zone-badge-intl { color: var(--tab-hike); background: color-mix(in srgb, var(--tab-hike) 16%, transparent); }
+  .zone-badge-intl { color: var(--tab-intl); background: color-mix(in srgb, var(--tab-intl) 16%, transparent); }
   .zone-domestic-head { margin-bottom: 14px; }
   .intl-zone {
-    margin-top: 32px; padding: 20px 22px 22px; border-radius: 16px;
-    background: color-mix(in srgb, var(--tab-hike) 5%, var(--surface-1));
-    border: 1.5px dashed color-mix(in srgb, var(--tab-hike) 40%, transparent);
+    margin-top: 0; padding: 0;
   }
   .intl-zone .grid { margin-bottom: 4px; }
-  .intl-zone .card { background: color-mix(in srgb, var(--tab-hike) 3%, var(--surface-1)); }
   .issue-summary {
     background: color-mix(in srgb, var(--tab-issue) 8%, var(--surface-1));
     border: 1px solid color-mix(in srgb, var(--tab-issue) 35%, transparent);
@@ -752,6 +750,7 @@
   <div class="tab-nav" id="tabNav">
     <div class="tab-nav-tabs">
       <button class="tab-btn active" data-tab="status" type="button"><span class="tab-dot"></span>원물 시세현황</button>
+      <button class="tab-btn" data-tab="intl" type="button"><span class="tab-dot"></span>국제원료시세</button>
       <button class="tab-btn" data-tab="season" type="button"><span class="tab-dot"></span>원물 수매 캘린더</button>
       <button class="tab-btn" data-tab="issue" type="button"><span class="tab-dot"></span>원물 수매 이슈</button>
       <button class="tab-btn" data-tab="hike" type="button"><span class="tab-dot"></span>식품업계 가격인상 동향</button>
@@ -799,12 +798,15 @@
       </table>
     </section>
 
+  </div>
+
+  <div class="tab-panel" id="tabPanel-intl">
+    <div class="zone-head">
+      <h2>🌾 국제 원료 시세 (식품 원가 동인)</h2>
+      <span class="zone-badge zone-badge-intl">해외 · 국제 선물가</span>
+    </div>
+    <div class="issue-note">쌀·배추 등 국내 원물과 달리 <b>전량 수입되는 원료</b>라 국내 도소매 시세가 없고, 국제 선물 종가(US$)와 환율(원/달러)의 조합으로 실제 조달원가가 결정됩니다. "≈ 원/kg" 값은 국제 선물 종가에 <b id="intlFxRate"></b>원/$ 환율(<span id="intlFxAsOf"></span> 매매기준율)을 적용해 환산한 참고치이며, 관세·해상운임·가공비 등은 반영되지 않아 실제 국내 매입단가와는 차이가 있을 수 있습니다. 차트(최근 추이·전년비)는 별도로 Yahoo Finance의 주간 종가를 사용하며, 계약월物(월물) 교체 시점 차이로 상단의 종가·등락률(aT FIS)과 소폭 다를 수 있습니다.<br>정리 기준일: <span id="intlAsOf"></span> · 출처: aT 식품산업통계정보(FIS), 차트: Yahoo Finance</div>
     <section class="intl-zone">
-      <div class="zone-head">
-        <h2>🌾 국제 원료 시세 (식품 원가 동인)</h2>
-        <span class="zone-badge zone-badge-intl">해외 · 국제 선물가</span>
-      </div>
-      <div class="issue-note">쌀·배추 등 위 국내 원물과 달리 <b>전량 수입되는 원료</b>라 국내 도소매 시세가 없고, 국제 선물 종가(US$)와 환율(원/달러)의 조합으로 실제 조달원가가 결정됩니다. "≈ 원/kg" 값은 국제 선물 종가에 <b id="intlFxRate"></b>원/$ 환율(<span id="intlFxAsOf"></span> 매매기준율)을 적용해 환산한 참고치이며, 관세·해상운임·가공비 등은 반영되지 않아 실제 국내 매입단가와는 차이가 있을 수 있습니다. 차트(최근 추이·전년비)는 별도로 Yahoo Finance의 주간 종가를 사용하며, 계약월物(월물) 교체 시점 차이로 상단의 종가·등락률(aT FIS)과 소폭 다를 수 있습니다.<br>정리 기준일: <span id="intlAsOf"></span> · 출처: aT 식품산업통계정보(FIS), 차트: Yahoo Finance</div>
       <div class="grid" id="intlGrid"></div>
     </section>
   </div>
