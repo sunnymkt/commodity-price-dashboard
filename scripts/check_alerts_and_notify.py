@@ -199,7 +199,10 @@ def send_email(subject, html_body, recipient, smtp_host, smtp_port, smtp_user, s
         server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=20)
     else:
         server = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
-        server.starttls()
+        # 사내 릴레이처럼 신뢰된 발신 IP만 허용하고 암호화(STARTTLS)는 지원하지 않는
+        # 서버도 있어, 서버가 실제로 STARTTLS를 광고할 때만 사용한다.
+        if server.has_extn("starttls"):
+            server.starttls()
     try:
         if smtp_user and smtp_password:
             server.login(smtp_user, smtp_password)
