@@ -997,6 +997,21 @@ function dataEntries() {
   return ITEM_ORDER.filter(code => DATA[code]).map(code => [code, toKgView(DATA[code])]);
 }
 
+// 국제 원료 4종(INTL_DATA)도 국내 원물과 동일하게 관심 품목(☆)으로 등록할 수 있도록,
+// dataEntries()와 같은 [code, item] 쌍 형태로 반환하는 헬퍼. 국제 품목은 latest_price 대신
+// price(US$ 단위) 필드를 쓰므로, 화면 표시 쪽에서 item.latest_price 유무로 국내/국제를 구분한다.
+function intlEntries() {
+  return INTL_ORDER.filter(code => INTL_DATA[code]).map(code => [code, INTL_DATA[code]]);
+}
+function allWatchableEntries() {
+  return [...dataEntries(), ...intlEntries()];
+}
+function watchItemPriceText(item) {
+  if (item.latest_price != null) return `${fmtPrice(item.latest_price)}원`;
+  if (item.price != null) return `${item.price.toFixed(2)} ${item.unit || ''}`.trim();
+  return '-';
+}
+
 // 식품업계 가격인상 동향 탭: 가공식품(라면·음료·과자·간편식 등) 가격 인상 뉴스 (수동 조사·정리, 실시간 갱신 아님)
 const HIKE_NEWS_AS_OF = '2026-10-06';
 const HIKE_NEWS_DATA = [
@@ -1216,7 +1231,10 @@ function renderIntl() {
       <div class="card-main">
         <div class="card-top">
           <div class="item-name plain"><span class="dot" style="background:var(--tab-hike)"></span>${item.name}</div>
-          <span class="zone-badge zone-badge-intl">해외</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            ${watchStarHtml(code)}
+            <span class="zone-badge zone-badge-intl">해외</span>
+          </div>
         </div>
         <div class="basis-tag">${item.exchange} · ${fmtDate(item.asof)} 종가</div>
         <div class="price-row">
@@ -1417,7 +1435,7 @@ const ALERT_EMAIL_KEY = 'nh_price_alert_email_v1';
 
 function openAlertSubscribeModal() {
   const watchSet = getWatchSet();
-  const items = dataEntries().filter(([code]) => watchSet.has(code));
+  const items = allWatchableEntries().filter(([code]) => watchSet.has(code));
   const savedEmail = (() => { try { return localStorage.getItem(ALERT_EMAIL_KEY) || ''; } catch (e) { return ''; } })();
   const itemsHtml = items.length
     ? `<div class="alert-sub-items">${items.map(([code, item]) => `<span class="alert-sub-item-chip">${item.name}</span>`).join('')}</div>`
@@ -1872,10 +1890,10 @@ function buildWatchSection() {
     if (sidebarList) sidebarList.innerHTML = `<span class="watch-sidebar-empty">☆ 품목 카드의 별표(즐겨찾기)를 누르면 여기 모아서 볼 수 있어요.</span>`;
     return;
   }
-  const items = dataEntries().filter(([code]) => watchSet.has(code));
+  const items = allWatchableEntries().filter(([code]) => watchSet.has(code));
   box.innerHTML = items.map(([code, item]) => {
     const chg = item.week_chg_pct != null ? fmtPct(item.week_chg_pct) : '-';
-    return `<span class="watch-chip" data-code="${code}" title="클릭하면 관심 품목에서 제외됩니다">${itemNameBadge(code, item)}<span class="watch-chip-text">${fmtPrice(item.latest_price)}원 · 전주 ${chg}</span></span>`;
+    return `<span class="watch-chip" data-code="${code}" title="클릭하면 관심 품목에서 제외됩니다">${itemNameBadge(code, item)}<span class="watch-chip-text">${watchItemPriceText(item)} · 전주 ${chg}</span></span>`;
   }).join('');
   if (sidebarList) {
     sidebarList.innerHTML = items.map(([code, item]) => {
@@ -1883,7 +1901,7 @@ function buildWatchSection() {
       return `<div class="watch-sidebar-item" data-code="${code}">
         <div class="watch-sidebar-info">
           <span class="watch-sidebar-name">${itemNameBadge(code, item)}</span>
-          <span class="watch-sidebar-price">${fmtPrice(item.latest_price)}원 · 전년동기 ${yoyChg}</span>
+          <span class="watch-sidebar-price">${watchItemPriceText(item)} · 전년동기 ${yoyChg}</span>
         </div>
         <button type="button" class="watch-sidebar-remove" data-code="${code}" title="관심 품목 해제" aria-label="관심 품목 해제">✕</button>
       </div>`;
@@ -1895,7 +1913,7 @@ function buildWatchSection() {
 // 급등/급락 알림은 전년동기 대비 등락폭 기준으로만 산정한다(전주 대비는 판정에 사용하지 않음).
 function collectAlertItems() {
   const items = [];
-  dataEntries().forEach(([code, item]) => {
+  allWatchableEntries().forEach(([code, item]) => {
     const tier = yoyLightTier(item.yoy_chg_pct);
     if (tier === 'crit') items.push({ code, item, badge: '급락', detail: `전년동기 대비 ${fmtPct(item.yoy_chg_pct)}` });
     if (tier === 'crit-up') items.push({ code, item, badge: '급등', detail: `전년동기 대비 ${fmtPct(item.yoy_chg_pct)}` });
