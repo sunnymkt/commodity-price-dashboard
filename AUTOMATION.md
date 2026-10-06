@@ -60,10 +60,64 @@ git push -u origin main
 설정하면 `https://<계정명>.github.io/<저장소명>/` 에서 최신 버전을 바로 볼 수 있습니다.
 이 경우 Claude Artifact 게시본과는 별개로, 매일 자동 갱신되는 진짜 "라이브" 대시보드가 생깁니다.
 
+## 6. 관심원물 시세 추이 이메일 알림 설정
+
+대시보드에서 ☆(관심 품목)로 등록한 품목에 급등/급락이 새로 발생하면, 구독한 이메일로
+가격 추이 그래프와 변화 내용을 자동 발송하는 기능입니다. 아래 순서로 한 번만 설정하면 됩니다.
+
+### 6-1. 구독자 저장용 Google 시트 + Apps Script 배포
+
+1. [sheets.google.com](https://sheets.google.com)에서 새 스프레드시트를 만든다 (이름 예: `원물시세_알림구독자`).
+2. 메뉴 `확장 프로그램 > Apps Script`로 들어간다.
+3. 기본으로 열린 `Code.gs`의 내용을 전부 지우고, 이 저장소의 `apps-script/Code.gs` 내용을 그대로 붙여넣는다.
+4. 우측 상단 `배포 > 새 배포` 클릭 → 유형 선택(⚙️) `웹 앱` 선택.
+   - 설명: 아무거나(예: `v1`)
+   - 실행 계정: **나**
+   - 액세스 권한: **전체 공개(익명 사용자 포함)**
+5. `배포` 클릭 → 발급된 웹 앱 URL(`https://script.google.com/macros/s/.../exec`)을 복사해둔다.
+   - 처음 배포 시 Google 계정 권한 승인 화면이 뜨면 본인 계정으로 승인한다.
+
+### 6-2. 대시보드에 구독 API 주소 연결
+
+`index.html`에서 아래 줄을 찾아, 6-1에서 복사한 웹 앱 URL로 교체한다.
+
+```js
+const SUBSCRIBE_API_URL = 'REPLACE_WITH_APPS_SCRIPT_WEB_APP_URL';
+```
+
+### 6-3. GitHub Secrets 등록
+
+저장소 > Settings > Secrets and variables > Actions 에 아래를 등록한다.
+
+| Secret 이름 | 값 |
+|---|---|
+| `SUBSCRIBE_SHEET_API_URL` | 6-1에서 발급받은 웹 앱 URL (위 `SUBSCRIBE_API_URL`과 동일한 값) |
+| `SMTP_HOST` | 회사 그룹웨어 SMTP 서버 주소 (`food-trend-analyzer` 저장소에 이미 등록된 값과 동일하게) |
+| `SMTP_PORT` | 보통 587 (또는 465) |
+| `SMTP_USER` | 발신 계정 |
+| `SMTP_PASSWORD` | 발신 계정 비밀번호(또는 앱 비밀번호) |
+| `SMTP_FROM` | 발신 표시 주소 (비워두면 `SMTP_USER` 사용) |
+
+`food-trend-analyzer` 저장소에서 이미 같은 방식으로 주간 리포트를 정상 발송 중이므로, 그때 사용한 값을
+그대로 이 저장소 Secrets에도 등록하면 됩니다(Secrets는 저장소별로 따로 등록해야 합니다).
+
+### 6-4. 동작 방식
+
+- 매일 자동 실행(`update-prices.yml`)의 마지막 단계에서 `scripts/check_alerts_and_notify.py`가 실행됩니다.
+- 이 스크립트는 `data/alert_state.json`에 저장된 "어제까지의 급등/급락 상태"와 오늘 계산된 상태를 비교해,
+  **새로 급등/급락이 시작되거나 종류가 바뀐 품목**만 골라냅니다(매일 반복 발송 방지).
+- 그 품목을 관심 품목으로 등록한 구독자에게만, 해당 품목의 그래프(QuickChart.io로 생성)와 가격 변화를
+  이메일로 보냅니다.
+- 구독/해지는 대시보드의 "📧 관심원물 시세 추이 알림받기" 버튼에서 이메일만 입력하면 되고,
+  관심 품목(☆) 목록은 그 시점에 브라우저에 저장된 목록을 그대로 사용합니다(관심 품목을 바꿨다면
+  다시 구독 버튼을 눌러 갱신해야 최신 목록으로 반영됩니다).
+
 ## 참고: 스크립트 구성
 
 - `scripts/fetch_kamis.py` — KAMIS Open-API로 국내 8개 품목 가격 수집 → `data/kamis_latest.json`
 - `scripts/fetch_intl.py` — Yahoo Finance로 국제 4개 원료 주간 종가 수집 → `data/intl_latest.json`
 - `scripts/update_dashboard.py` — 위 두 JSON을 `index.html`의 `DATA`/`INTL_DATA`에 병합하고
   전일/전주/전월/전년동기 변화율과 급등·급락 alert를 재계산
-- `.github/workflows/update-prices.yml` — 위 세 스크립트를 매일 실행하는 워크플로
+- `scripts/check_alerts_and_notify.py` — 급등/급락 상태 변화를 감지해 구독자에게 이메일 발송
+- `apps-script/Code.gs` — 구독자(이메일+관심품목) 저장용 Google Apps Script 웹 앱 코드
+- `.github/workflows/update-prices.yml` — 위 스크립트들을 매일 실행하는 워크플로

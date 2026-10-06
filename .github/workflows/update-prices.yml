@@ -33,6 +33,16 @@ jobs:
       - name: index.html 갱신
         run: python scripts/update_dashboard.py
 
+      - name: 관심품목 급등/급락 이메일 알림
+        env:
+          SUBSCRIBE_SHEET_API_URL: ${{ secrets.SUBSCRIBE_SHEET_API_URL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+        run: python scripts/check_alerts_and_notify.py
+
       - name: 변경사항 커밋
         run: |
           git config user.name "price-bot"
