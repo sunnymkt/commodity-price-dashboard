@@ -251,6 +251,10 @@ def main():
         return
 
     sent_count = 0
+    # 품목별 발송 성공 여부를 추적해, 발송에 실패한 품목은 상태를 갱신하지 않고
+    # 다음 실행에서 다시 "새로운 변화"로 인식되어 재시도되도록 한다(SMTP 설정 오류 등으로
+    # 메일이 실제로 나가지 않았는데도 '이미 통보함'으로 기록되어 영영 재시도가 안 되는 것을 방지).
+    send_ok = {}
     for sub in subscribers:
         email = sub.get("email")
         watched = set(sub.get("items") or [])
@@ -265,10 +269,18 @@ def main():
             send_email(subject, html_body, email, smtp_host, smtp_port, smtp_user, smtp_password, smtp_from)
             sent_count += 1
             print(f"  -> {email} 발송 완료 ({names})")
+            for c in matched:
+                send_ok.setdefault(c, True)
         except Exception as e:
             print(f"  -> {email} 발송 실패: {e}", file=sys.stderr)
+            for c in matched:
+                send_ok[c] = False
 
     print(f"총 {sent_count}건 발송")
+
+    for c in changed_codes:
+        if send_ok.get(c) is False:
+            new_state[c] = state.get(c)  # 실패한 품목은 이전 상태 유지 → 다음 실행에서 재시도
     save_state(new_state)
 
 
