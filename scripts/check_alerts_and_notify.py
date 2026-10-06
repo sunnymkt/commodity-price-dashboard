@@ -70,7 +70,10 @@ def load_dashboard_items():
                 alert = "급등"
             elif yoy_c <= -15:
                 alert = "급락"
-        items["intl_" + code] = {
+        # 주의: 여기서 쓰는 code('sugar'/'wheat'/'soyoil'/'corn')는 대시보드 프론트엔드의
+        # INTL_ORDER 코드와 반드시 동일해야 한다. 접두어(intl_ 등)를 붙이면 구독자가
+        # 관심 품목으로 등록한 코드(예: 'wheat')와 매칭되지 않아 알림이 영영 발송되지 않는다.
+        items[code] = {
             "name": name,
             "latest_price": float(price),
             "unit": "원/kg (환율 환산)",
