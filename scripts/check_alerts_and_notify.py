@@ -8,6 +8,12 @@ index.html의 DATA/INTL_DATA에서 급등/급락(alert) 상태를 읽어,
 구독자 목록은 Google Apps Script 웹 앱(SUBSCRIBE_SHEET_API_URL)에서 GET으로 가져온다.
 이메일 발송은 food-trend-analyzer 프로젝트와 동일한 방식(회사 그룹웨어 SMTP)을 사용한다.
 
+주의: GitHub Actions 공용 러너는 실행마다 랜덤 IP를 쓰기 때문에, 그 IP가 스팸 차단
+목록(Spamhaus 등)에 걸려 있는 날은 메일 서버가 연결을 거부할 수 있다
+(예: "Your ip is filtered by RBL ..."). 이런 날은 당일 발송이 실패하지만, 아래
+재시도 로직 덕분에 알림 상태는 '통보 안 됨'으로 유지되어 다음 실행에서(대개 깨끗한
+IP를 받으면) 자동으로 재시도된다.
+
 반복 발송을 막기 위해 data/alert_state.json 에 "마지막으로 통보한 alert 상태"를
 품목별로 저장해두고, 그 값과 달라졌을 때만(= 급등/급락이 새로 시작되거나 종류가
 바뀌었을 때만) 이메일을 보낸다.

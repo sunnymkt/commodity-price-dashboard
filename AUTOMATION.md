@@ -101,6 +101,12 @@ const SUBSCRIBE_API_URL = 'REPLACE_WITH_APPS_SCRIPT_WEB_APP_URL';
 `food-trend-analyzer` 저장소에서 이미 같은 방식으로 주간 리포트를 정상 발송 중이므로, 그때 사용한 값을
 그대로 이 저장소 Secrets에도 등록하면 됩니다(Secrets는 저장소별로 따로 등록해야 합니다).
 
+> 참고: GitHub Actions 공용 러너는 실행마다 다른 IP를 쓰기 때문에, 그 IP가 스팸 차단
+> 목록(Spamhaus 등)에 걸려 있는 날은 메일 서버가 연결을 거부해 그날은 발송이 실패할 수
+> 있습니다(`food-trend-analyzer`도 같은 구조라 이론적으로는 겪을 수 있는 문제입니다).
+> 다만 발송이 실패한 품목은 "통보 안 됨" 상태로 남아 다음 자동 실행 때 다시 시도되므로,
+> 보통 하루이틀 안에는 정상적으로 전달됩니다.
+
 ### 6-4. 동작 방식
 
 - 매일 자동 실행(`update-prices.yml`)의 마지막 단계에서 `scripts/check_alerts_and_notify.py`가 실행됩니다.
