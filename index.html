@@ -113,16 +113,19 @@
   }
 
   .tab-nav {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
     margin-bottom: 20px; flex-wrap: nowrap;
+    border-bottom: 2px solid var(--gridline);
+    padding-bottom: 0;
   }
   .tab-nav-tabs {
-    display: flex; gap: 8px; flex: 1 1 auto; min-width: 0;
-    overflow-x: auto; scrollbar-width: thin;
+    display: flex; gap: 0; flex: 1 1 auto; min-width: 0;
+    overflow-x: auto; scrollbar-width: none;
   }
+  .tab-nav-tabs::-webkit-scrollbar { display: none; }
   .item-search-wrap {
     position: relative; display: flex; align-items: center;
-    width: 240px; max-width: 100%; flex: none;
+    width: 220px; max-width: 100%; flex: none; margin-bottom: 2px;
   }
   @media (max-width: 860px) {
     .tab-nav { flex-wrap: wrap; }
@@ -161,20 +164,23 @@
   }
   .tab-btn {
     appearance: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 13px; font-weight: 700; font-family: inherit;
-    padding: 9px 16px; border-radius: 999px;
-    background: var(--surface-1);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    padding: 10px 14px; border-radius: 0;
+    background: transparent;
     color: var(--text-muted);
-    border: 1px solid var(--border);
-    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
   }
-  .tab-btn .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--tab-color); opacity: 0.55; transition: opacity 0.12s ease; }
-  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--tab-color); opacity: 0.5; transition: opacity 0.15s ease; }
+  .tab-btn:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-muted) 8%, transparent); }
   .tab-btn.active {
-    background: color-mix(in srgb, var(--tab-color) 16%, var(--surface-1));
     color: var(--tab-color);
-    border-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
+    border-bottom-color: var(--tab-color);
+    font-weight: 700;
   }
   .tab-btn.active .tab-dot { opacity: 1; }
   .tab-btn[data-tab="status"] { --tab-color: var(--tab-status); }
@@ -577,23 +583,33 @@
 
   .month-procure-callout {
     display: none;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 20px;
+    background: color-mix(in srgb, var(--tab-season) 6%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--tab-season) 20%, transparent);
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin-bottom: 14px;
   }
-  .month-procure-callout.show { display: block; }
-  .month-procure-callout-title { font-weight: 800; font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
-  .month-procure-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .month-procure-callout.show { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+  .month-procure-callout-title {
+    font-weight: 700; font-size: 11px;
+    color: var(--tab-season);
+    white-space: nowrap; flex: none;
+    letter-spacing: 0.01em;
+  }
+  .month-procure-chip-row { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
   .month-procure-chip {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 4px 12px 4px 4px; border-radius: 999px; font-size: 14px; font-weight: 600;
-    border: 1px solid var(--border);
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 6px 1px 2px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--tab-season) 22%, transparent);
     background: var(--surface-1);
   }
-  .month-procure-chip .item-name { font-size: 14px; padding: 2px 9px 2px 7px; }
-  .month-procure-chip-text { color: var(--tab-season); }
+  .month-procure-chip .item-name {
+    font-size: 11px !important;
+    padding: 1px 5px 1px 4px !important;
+    gap: 4px !important;
+  }
+  .month-procure-chip .item-name .dot { width: 6px !important; height: 6px !important; }
+  .month-procure-chip-text { color: var(--tab-season); font-size: 11px; }
 
   .watch-section {
     /* 오른쪽 사이드바(.watch-sidebar)로 완전히 대체되어 화면 크기와 무관하게 항상 숨김. */
