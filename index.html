@@ -1446,7 +1446,7 @@ function closeAppModal() {
 // 관심원물 시세 추이 이메일 알림 구독
 // 아래 URL은 Google Apps Script 웹 앱 배포 후 발급되는 주소로 교체해야 동작합니다.
 // (AUTOMATION.md의 "관심원물 알림 설정" 참고)
-const SUBSCRIBE_API_URL = 'https://script.google.com/macros/s/AKfycby04DD-jPsx1EWMeUfdLL4lr1PXBIav_a9ZbpHdhZQJ3s1Z3761SKO3X7lzbuVVL6jG/exec';
+const SUBSCRIBE_API_URL = 'https://script.google.com/macros/s/AKfycbwH_qjlVxz1bRJobc0L3qVUQjmfDldjkdxTXQWLu2hVDn-MEub4sPDbPOarLezEcpVHqg/exec';
 const ALERT_EMAIL_KEY = 'nh_price_alert_email_v1';
 
 function openAlertSubscribeModal() {
@@ -1483,7 +1483,7 @@ function submitAlertSubscription(unsubscribe) {
     statusEl.className = 'alert-sub-status err';
     return;
   }
-  if (SUBSCRIBE_API_URL.indexOf('https://script.google.com/macros/s/AKfycbwH_qjlVxz1bRJobc0L3qVUQjmfDldjkdxTXQWLu2hVDn-MEub4sPDbPOarLezEcpVHqg/exec') === 0) {
+  if (SUBSCRIBE_API_URL.indexOf('REPLACE_WITH') === 0) {
     statusEl.textContent = '알림 기능이 아직 설정 중입니다. 잠시 후 다시 시도해주세요.';
     statusEl.className = 'alert-sub-status err';
     return;
