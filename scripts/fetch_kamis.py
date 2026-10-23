@@ -9,6 +9,8 @@ GitHub Actions에서는 repository secrets로 주입한다.
 주의: KAMIS periodProductList는 "중도매인 판매가격/도매가격" 계열 데이터다.
 배추/딸기(가락시장 경락가격), 계란(ekapepia.com), 밤(forestinfo.or.kr),
 고춧가루-도매(data.go.kr 건고추 경락가)는 이 API로 커버되지 않아 여기서는 제외했다.
+고춧가루(소매, 248)는 지역별 값이 한 날짜에 여러 개 섞여 들어와 평균이 아닌 값이 채택되는 문제가 있어
+fetch_at_recent.py(최근일자 도·소매가격정보 API)로 대체했다(여기서는 제외).
 이 4개 품목은 fetch_manual_sources.py(또는 기존 브라우저 조사 방식)로 별도 갱신하거나,
 당분간 수동 갱신을 유지해야 한다.
 """
@@ -32,7 +34,6 @@ ITEM_CONFIG = {
     "151": {"name": "고구마",          "itemcategorycode": "100", "itemcode": "151", "kindcode": "00", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "312": {"name": "참깨",            "itemcategorycode": "300", "itemcode": "312", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "313": {"name": "들깨",            "itemcategorycode": "300", "itemcode": "313", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
-    "248": {"name": "고춧가루(소매)",   "itemcategorycode": "200", "itemcode": "248", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
     "651": {"name": "멸치액젓",        "itemcategorycode": "600", "itemcode": "651", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
     "652": {"name": "천일염",          "itemcategorycode": "600", "itemcode": "652", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
 }
@@ -83,6 +84,26 @@ def fetch_period_product(cert_key, cert_id, cfg, startday, endday):
     return None
 
 
+def _diagnose(items):
+    """응답 행이 어떻게 구성돼 있는지 로그로만 남긴다(데이터에는 영향 없음).
+    같은 날짜에 서로 다른 가격이 여러 개 들어오는 원인(지역·시장·연도 등)을 파악하기 위한 진단용."""
+    if not items or not isinstance(items[0], dict):
+        return
+    from collections import Counter
+    print(f"  [진단] 응답 행 수={len(items)}, 필드={sorted(items[0].keys())}")
+    keys = [k for k in ("itemname", "kindname", "productrankname", "countyname", "marketname", "yyyy")
+            if k in items[0]]
+    combo = Counter(tuple(str(it.get(k)) for k in keys) for it in items)
+    print(f"  [진단] 구분 필드={keys}, 서로 다른 조합 {len(combo)}개")
+    for c, n in combo.most_common(12):
+        print(f"    [진단] {n}행 {dict(zip(keys, c))}")
+    by_date = Counter((it.get("regday"), it.get("yyyy")) for it in items)
+    multi = sum(1 for v in by_date.values() if v > 1)
+    print(f"  [진단] 같은 (날짜, 연도)에 행이 2개 이상인 날짜 수={multi} / 전체 {len(by_date)}")
+    sample = [it for it in items if isinstance(it, dict)][:3]
+    print(f"  [진단] 원본 행 예시: {json.dumps(sample, ensure_ascii=False)}")
+
+
 def main():
     cert_key = os.environ.get("KAMIS_CERT_KEY")
     cert_id = os.environ.get("KAMIS_CERT_ID")
@@ -121,6 +142,7 @@ def main():
             items = []
         if isinstance(items, dict):
             items = [items]
+        _diagnose(items)
         points = []
         for it in items:
             regday = it.get("regday", "").replace("-", "").replace("/", "")

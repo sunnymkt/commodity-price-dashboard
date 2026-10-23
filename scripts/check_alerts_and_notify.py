@@ -6,13 +6,13 @@ index.html의 DATA/INTL_DATA에서 급등/급락(alert) 상태를 읽어,
 구독자에게 이메일로 알려준다.
 
 구독자 목록은 Google Apps Script 웹 앱(SUBSCRIBE_SHEET_API_URL)에서 GET으로 가져온다.
-이메일 발송은 food-trend-analyzer 프로젝트와 동일한 방식(회사 그룹웨어 SMTP)을 사용한다.
 
-주의: GitHub Actions 공용 러너는 실행마다 랜덤 IP를 쓰기 때문에, 그 IP가 스팸 차단
-목록(Spamhaus 등)에 걸려 있는 날은 메일 서버가 연결을 거부할 수 있다
-(예: "Your ip is filtered by RBL ..."). 이런 날은 당일 발송이 실패하지만, 아래
-재시도 로직 덕분에 알림 상태는 '통보 안 됨'으로 유지되어 다음 실행에서(대개 깨끗한
-IP를 받으면) 자동으로 재시도된다.
+이메일 발송은 SendGrid API(HTTP)를 사용한다. 처음엔 food-trend-analyzer와 동일하게
+회사 그룹웨어 SMTP로 직접 발송했지만, GitHub Actions 공용 러너가 쓰는 IP가 거의 매번
+스팸 차단 목록(Spamhaus 등)에 걸려 있어서 메일 서버가 연결 자체를 계속 거부했다
+(예: "Your ip is filtered by RBL ..." — 여러 날, 여러 IP에서 반복 확인됨, 가끔이 아니라
+사실상 상시 발생하는 문제였다). SendGrid는 자체 평판 좋은 발신 인프라로 API를 통해
+보내므로 이 문제에서 자유롭다.
 
 반복 발송을 막기 위해 data/alert_state.json 에 "마지막으로 통보한 alert 상태"를
 품목별로 저장해두고, 그 값과 달라졌을 때만(= 급등/급락이 새로 시작되거나 종류가
@@ -22,13 +22,9 @@ import os
 import re
 import sys
 import json
-import smtplib
 import urllib.request
 import urllib.parse
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.header import Header
-from email.utils import parseaddr, formataddr
+import urllib.error
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 INDEX_PATH = os.path.join(ROOT, "index.html")
@@ -72,9 +68,9 @@ def load_dashboard_items():
         yoy_c = float(yoy_mm.group(1)) if yoy_mm else None
         alert = None
         if yoy_c is not None:
-            if yoy_c >= 15:
+            if yoy_c >= 20:
                 alert = "급등"
-            elif yoy_c <= -15:
+            elif yoy_c <= -20:
                 alert = "급락"
         # 주의: 여기서 쓰는 code('sugar'/'wheat'/'soyoil'/'corn')는 대시보드 프론트엔드의
         # INTL_ORDER 코드와 반드시 동일해야 한다. 접두어(intl_ 등)를 붙이면 구독자가
@@ -179,7 +175,7 @@ def build_email_html(email, alerting_items):
     return f"""
     <div style="font-family:'Malgun Gothic',sans-serif;max-width:560px;margin:0 auto;">
       <h2 style="color:#1a2340;">🔔 관심 원물 시세 변화 알림</h2>
-      <p style="color:#52514e;font-size:13px;">회원님이 등록하신 관심 품목 중 아래 품목의 전년동기 대비 가격이 급등/급락 기준(±15%)을 새로 넘었습니다.</p>
+      <p style="color:#52514e;font-size:13px;">회원님이 등록하신 관심 품목 중 아래 품목의 전년동기 대비 가격이 급등/급락 기준(±20%)을 새로 넘었습니다.</p>
       {body}
       <p style="margin-top:24px;font-size:12px;color:#898781;">
         전체 대시보드는 <a href="{DASHBOARD_URL}">여기서</a> 확인하실 수 있습니다.<br/>
@@ -188,34 +184,31 @@ def build_email_html(email, alerting_items):
     </div>"""
 
 
-def encode_addr(addr):
-    name, email_addr = parseaddr(addr)
-    return formataddr((str(Header(name, "utf-8")), email_addr)) if name else email_addr
-
-
-def send_email(subject, html_body, recipient, smtp_host, smtp_port, smtp_user, smtp_password, smtp_from):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = encode_addr(smtp_from)
-    msg["To"] = recipient
-    msg.attach(MIMEText("HTML을 지원하는 메일 클라이언트로 확인해주세요.", "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-    if smtp_port == 465:
-        server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=20)
-    else:
-        server = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
-        # 사내 릴레이처럼 신뢰된 발신 IP만 허용하고 암호화(STARTTLS)는 지원하지 않는
-        # 서버도 있어, 서버가 실제로 STARTTLS를 광고할 때만 사용한다.
-        if server.has_extn("starttls"):
-            server.starttls()
+def send_email(subject, html_body, recipient, api_key, from_email, from_name):
+    """SendGrid Mail Send API(v3)로 이메일을 발송한다. HTTP 기반이라
+    GitHub Actions 러너의 발신 IP 평판과 무관하게 안정적으로 전달된다."""
+    payload = {
+        "personalizations": [{"to": [{"email": recipient}]}],
+        "from": {"email": from_email, "name": from_name} if from_name else {"email": from_email},
+        "subject": subject,
+        "content": [{"type": "text/html", "value": html_body}],
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=data,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
     try:
-        if smtp_user and smtp_password:
-            server.login(smtp_user, smtp_password)
-        envelope_from = parseaddr(smtp_from)[1] or smtp_from
-        server.sendmail(envelope_from, [recipient], msg.as_string())
-    finally:
-        server.quit()
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp.read()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"SendGrid API 오류 {e.code}: {body}") from e
 
 
 def main():
@@ -224,13 +217,11 @@ def main():
         print("SUBSCRIBE_SHEET_API_URL 미설정 — 알림 발송 단계를 건너뜁니다.")
         return
 
-    smtp_host = os.environ.get("SMTP_HOST", "").strip()
-    smtp_port = int(os.environ.get("SMTP_PORT", "587").strip() or "587")
-    smtp_user = os.environ.get("SMTP_USER", "").strip()
-    smtp_password = os.environ.get("SMTP_PASSWORD", "").strip()
-    smtp_from = os.environ.get("SMTP_FROM", "").strip() or smtp_user
-    if not smtp_host:
-        print("SMTP_HOST 미설정 — 알림 발송 단계를 건너뜁니다.")
+    sendgrid_api_key = os.environ.get("SENDGRID_API_KEY", "").strip()
+    sendgrid_from = os.environ.get("SENDGRID_FROM", "").strip()
+    sendgrid_from_name = os.environ.get("SENDGRID_FROM_NAME", "NH FOOD 원물시세").strip()
+    if not sendgrid_api_key or not sendgrid_from:
+        print("SENDGRID_API_KEY / SENDGRID_FROM 미설정 — 알림 발송 단계를 건너뜁니다.")
         return
 
     items = load_dashboard_items()
@@ -275,7 +266,7 @@ def main():
         names = ", ".join(items[c]["name"] for c in matched)
         subject = f"[NH FOOD 원물시세] {names} 급등/급락 알림"
         try:
-            send_email(subject, html_body, email, smtp_host, smtp_port, smtp_user, smtp_password, smtp_from)
+            send_email(subject, html_body, email, sendgrid_api_key, sendgrid_from, sendgrid_from_name)
             sent_count += 1
             print(f"  -> {email} 발송 완료 ({names})")
             for c in matched:

@@ -30,17 +30,20 @@ jobs:
       - name: 국제 원료 시세 수집 (Yahoo Finance)
         run: python scripts/fetch_intl.py
 
+      - name: 최근일자 도·소매가격 수집 (고춧가루 소매·건고추 도매)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python scripts/fetch_at_recent.py
+
       - name: index.html 갱신
         run: python scripts/update_dashboard.py
 
       - name: 관심품목 급등/급락 이메일 알림
         env:
           SUBSCRIBE_SHEET_API_URL: ${{ secrets.SUBSCRIBE_SHEET_API_URL }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
+          SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
         run: python scripts/check_alerts_and_notify.py
 
       - name: 변경사항 커밋
