@@ -29,6 +29,8 @@ ALERT_PCT = 20   # 전년동기 대비 급등/급락 기준(±%)
 # True : 서로 다른 출처가 섞인 예전 이력을 버리고 API 값으로 새로 시작(그래프는 처음에 점이 적음)
 # False: 예전 이력을 그대로 두고 최신 값부터 API 값을 이어 붙임(그래프 이력 유지, 예전 오염 값도 남음)
 RESET_HISTORY_ON_SWITCH = True
+# 최근 조사일이 오늘보다 이 일수 넘게 오래된 품목(비수기·조사 중단)은 갱신하지 않고 건너뛴다.
+STALE_DAYS = 21
 
 
 def to_date(s):
@@ -175,6 +177,9 @@ def merge_at_recent():
         if latest is None or not ymd:
             continue
         ld = to_date(ymd)
+        if (datetime.date.today() - ld).days > STALE_DAYS:
+            print(f"[at:{code}] 최근 조사일 {ymd}이 {STALE_DAYS}일보다 오래됨(비수기·조사 중단) — 건너뜀")
+            continue
         d = data[code]
         yy1, mm1, ww1, dd1 = f.get("yy1"), f.get("mm1"), f.get("ww1"), f.get("dd1")
         yoy_date = one_year_before(ld).strftime("%Y%m%d")
@@ -205,7 +210,7 @@ def merge_at_recent():
         d["yoy_src"] = "at"
         d["latest_date"] = ymd
         d["latest_price"] = latest
-        d["unit"] = f"kg{str(f.get('unit_sz') or 1).strip()}"      # 예: kg1(소매), kg30(30kg 중도매)
+        d["unit"] = f"{f.get('unit') or 'kg'}{str(f.get('unit_sz') or 1).strip()}"   # 예: kg1(소매), kg30, kg(그물망 3포기)10
         d["basis"] = f.get("basis") or d.get("basis")
         d["day_chg_pct"] = pct(latest, dd1) if dd1 else 0.0
         d["week_chg_pct"] = pct(latest, ww1) if ww1 else 0.0

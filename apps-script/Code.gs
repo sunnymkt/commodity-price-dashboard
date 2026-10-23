@@ -24,6 +24,7 @@ const CONFIG = {
   SUB_SHEET: '구독자',
   STATE_SHEET: '발송이력',
   ONLY_AT_SOURCES: true, // true면 가격 출처가 검증된 API(최근일자 도·소매가격, yoy_src='at') 품목만 급등·급락을 판정. 나머지는 이력 정리가 끝날 때까지 알림 제외
+  MAX_STALE_DAYS: 21,    // 최근 조사일이 오늘보다 이 일수 넘게 오래된 품목(비수기·조사 중단)은 알림 판정에서 제외
   YOY_MAX_GAP_DAYS: 21, // 전년동기 비교: '1년 전 같은 날' 자료가 없을 때 허용하는 최대 날짜 차이(일). 넘으면 판정 제외
   YOY_MAX_SPREAD_PCT: 10, // 1년 전 같은 시기(±7일) 가격이 이 비율(%) 넘게 들쭉날쭉하면 자료를 믿기 어렵다고 보고 그 품목은 판정 보류
   CHART_DAYS: 180, // 메일 그래프에 보여줄 최근 기간(일)
@@ -277,6 +278,11 @@ function applyTrueYoy_(item) {
   // 최근일자 도·소매가격 API(yoy_src='at')는 1년 전 가격을 API가 직접 주므로 그 값을 그대로 쓴다
   if (item.yoy_src === 'at' && item.yoy_price != null && item.yoy_date && item.latest_price != null) {
     const o = Object.assign({}, item);
+    const ageDays = (new Date().getTime() - parseYmd_(item.latest_date).getTime()) / 86400000;
+    if (ageDays > CONFIG.MAX_STALE_DAYS) {          // 비수기·조사 중단 품목은 오래된 값으로 알리지 않는다
+      o.yoy_chg_pct = null; o.yoy_stale = true;
+      return o;
+    }
     o.yoy_chg_pct = Math.round((item.latest_price / item.yoy_price - 1) * 1000) / 10;
     o.yoy_gap = 0;
     o.yoy_pool = pricePool_(item);

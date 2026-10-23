@@ -61,13 +61,33 @@ TARGETS = {
         "basis": "중도매(백색 국산·상품, 전국 평균)",
         "se_cd": "02", "item_cd": "312", "vrty_cd": "01", "grd_cd": "04",
     },
+    "226": {
+        "name": "딸기(설향)",
+        "basis": "중도매(설향·상품, 전국 평균) — 시즌(약 11~4월)에만 조사",
+        "se_cd": "02", "item_cd": "226", "vrty_cd": "00", "grd_cd": "04",
+    },
+    # 배추는 품종(01 봄 / 02 여름(고랭지) / 03 가을 / 06 월동)이 계절마다 바뀌므로 품종을 고정하지 않고
+    # 최근 조사 중인 품종 가운데 계절에 맞는 것을 pick_row() 가 고른다.
+    "211": {
+        "name": "배추",
+        "basis": "중도매({vrty}·상품, 전국 평균)",
+        "se_cd": "02", "item_cd": "211", "grd_cd": "04",
+        "auto_variety": True,
+    },
+}
+
+# 배추 품종 선택: 최근 ACTIVE_WINDOW_DAYS 일 안에 조사된 품종 중, 월별 우선순위에 맞는 첫 품종을 쓴다.
+# 우선순위에 맞는 품종이 없으면 가장 최근에 조사된 품종을 쓴다.
+ACTIVE_WINDOW_DAYS = 7
+CABBAGE_SEASON_PREF = {
+    1: ["06", "03"], 2: ["06", "03"], 3: ["06", "01"], 4: ["01", "06"],
+    5: ["01", "06"], 6: ["01", "02"], 7: ["02", "01"], 8: ["02"],
+    9: ["02", "03"], 10: ["03", "02"], 11: ["03", "06"], 12: ["06", "03"],
 }
 
 # 아직 연결하지 않은 품목의 (품종·등급·단위) 조합을 로그에만 출력한다(데이터에는 영향 없음).
 # 로그를 보고 TARGETS 에 추가할 품종·등급을 정한다.  (품목코드, 이름, 구분: 01 소매 / 02 중도매)
-DISCOVER = [
-    ("211", "배추", "02"), ("226", "딸기", "02"), ("651", "멸치액젓", "02"), ("652", "천일염", "02"),
-]
+DISCOVER = []
 
 
 def encoded_key(raw):
@@ -124,8 +144,25 @@ def extract_rows(payload):
     return rows or []
 
 
+def pick_row(cfg, rows):
+    """응답 행 중 사용할 한 줄을 고른다. 품종 고정 품목은 가장 최근 조사일 행, 배추는 계절에 맞는 품종 행."""
+    latest = lambda r: r.get("exmn_ymd", "")
+    if not cfg.get("auto_variety"):
+        return max(rows, key=latest)
+    newest = max(latest(r) for r in rows)
+    cutoff = (datetime.datetime.strptime(newest, "%Y%m%d") - datetime.timedelta(days=ACTIVE_WINDOW_DAYS)).strftime("%Y%m%d")
+    active = [r for r in rows if latest(r) >= cutoff]
+    for code in CABBAGE_SEASON_PREF.get(int(newest[4:6]), []):
+        hit = [r for r in active if r.get("vrty_cd") == code]
+        if hit:
+            return max(hit, key=latest)
+    return max(active, key=latest)
+
+
 def discover(key):
     """연결 전 품목의 조회 가능한 조합을 로그로 남긴다. 실패해도 본 작업에는 영향이 없도록 예외를 삼킨다."""
+    if not DISCOVER:
+        return
     print("--- [탐색] 아직 연결하지 않은 품목의 조회 가능 조합 ---")
     for item_cd, name, se_cd in DISCOVER:
         try:
@@ -157,10 +194,12 @@ def main():
         if not rows:
             print("  -> 데이터 없음, 건너뜀")
             continue
-        row = max(rows, key=lambda r: r.get("exmn_ymd", ""))   # 가장 최근 조사일 행
+        row = pick_row(cfg, rows)
         rec = {
             "name": cfg["name"],
-            "basis": cfg["basis"],
+            "basis": cfg["basis"].replace("{vrty}", str(row.get("vrty_nm") or "")),
+            "vrty_cd": row.get("vrty_cd"),
+            "vrty_nm": row.get("vrty_nm"),
             "exmn_ymd": row.get("exmn_ymd"),
             "unit": row.get("unit"),
             "unit_sz": row.get("unit_sz"),
@@ -175,7 +214,7 @@ def main():
             print("  -> 가격 파싱 실패, 건너뜀")
             continue
         result[code] = rec
-        print(f"  -> {rec['exmn_ymd']} {rec['prc']:,.0f} (1년 전 {rec['yy1']}, 1개월 전 {rec['mm1']})")
+        print(f"  -> {rec['exmn_ymd']} {rec['prc']:,.0f} [{rec['vrty_nm']}] (1년 전 {rec['yy1']}, 1개월 전 {rec['mm1']})")
 
     out_path = os.path.join(os.path.dirname(__file__), "..", "data", "at_recent.json")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
