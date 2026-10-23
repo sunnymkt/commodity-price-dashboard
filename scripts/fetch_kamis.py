@@ -11,7 +11,8 @@ GitHub Actions에서는 repository secrets로 주입한다.
 고춧가루-도매(data.go.kr 건고추 경락가)는 이 API로 커버되지 않아 여기서는 제외했다.
 고춧가루(소매, 248)는 지역별 값이 한 날짜에 여러 개 섞여 들어와 평균이 아닌 값이 채택되는 문제가 있어
 fetch_at_recent.py(최근일자 도·소매가격정보 API)로 대체했다(여기서는 제외).
-들깨(313)도 같은 API로 옮겼다(KAMIS 이력에 평년 값이 섞여 전년동기 비교가 틀어졌기 때문).
+들깨(313)·쌀(111)·콩(141)·고구마(151)·참깨(312)도 같은 API로 옮겼다
+(KAMIS 이력에 평년 값이 섞여 전년동기 비교가 틀어졌기 때문). 여기에는 멸치액젓·천일염만 남는다.
 이 4개 품목은 fetch_manual_sources.py(또는 기존 브라우저 조사 방식)로 별도 갱신하거나,
 당분간 수동 갱신을 유지해야 한다.
 """
@@ -30,10 +31,6 @@ KAMIS_BASE = "http://www.kamis.or.kr/service/price/xml.do"
 # code -> (itemcategorycode, itemcode, kindcode, productrankcode, productclscode, countrycode)
 # productclscode: 01=소매, 02=도매
 ITEM_CONFIG = {
-    "111": {"name": "쌀(국산)",        "itemcategorycode": "100", "itemcode": "111", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
-    "141": {"name": "콩(백태/대립종)",  "itemcategorycode": "100", "itemcode": "141", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
-    "151": {"name": "고구마",          "itemcategorycode": "100", "itemcode": "151", "kindcode": "00", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
-    "312": {"name": "참깨",            "itemcategorycode": "300", "itemcode": "312", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "651": {"name": "멸치액젓",        "itemcategorycode": "600", "itemcode": "651", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
     "652": {"name": "천일염",          "itemcategorycode": "600", "itemcode": "652", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
 }

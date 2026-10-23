@@ -25,6 +25,10 @@ KAMIS_JSON = os.path.join(ROOT, "data", "kamis_latest.json")
 INTL_JSON = os.path.join(ROOT, "data", "intl_latest.json")
 AT_JSON = os.path.join(ROOT, "data", "at_recent.json")
 ALERT_PCT = 20   # 전년동기 대비 급등/급락 기준(±%)
+# 최근일자 API로 처음 전환할 때 예전 이력(points/yoy_points)을 비울지 여부.
+# True : 서로 다른 출처가 섞인 예전 이력을 버리고 API 값으로 새로 시작(그래프는 처음에 점이 적음)
+# False: 예전 이력을 그대로 두고 최신 값부터 API 값을 이어 붙임(그래프 이력 유지, 예전 오염 값도 남음)
+RESET_HISTORY_ON_SWITCH = True
 
 
 def to_date(s):
@@ -175,7 +179,7 @@ def merge_at_recent():
         yy1, mm1, ww1, dd1 = f.get("yy1"), f.get("mm1"), f.get("ww1"), f.get("dd1")
         yoy_date = one_year_before(ld).strftime("%Y%m%d")
 
-        if d.get("yoy_src") != "at":
+        if d.get("yoy_src") != "at" and RESET_HISTORY_ON_SWITCH:
             # 최초 전환: 예전 이력을 비우고, API가 알려주는 시점별 가격으로 시작 이력을 만든다.
             seeds = []
             if yy1 is not None:
