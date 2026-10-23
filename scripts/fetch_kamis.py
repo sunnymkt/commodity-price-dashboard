@@ -11,6 +11,7 @@ GitHub Actions에서는 repository secrets로 주입한다.
 고춧가루-도매(data.go.kr 건고추 경락가)는 이 API로 커버되지 않아 여기서는 제외했다.
 고춧가루(소매, 248)는 지역별 값이 한 날짜에 여러 개 섞여 들어와 평균이 아닌 값이 채택되는 문제가 있어
 fetch_at_recent.py(최근일자 도·소매가격정보 API)로 대체했다(여기서는 제외).
+들깨(313)도 같은 API로 옮겼다(KAMIS 이력에 평년 값이 섞여 전년동기 비교가 틀어졌기 때문).
 이 4개 품목은 fetch_manual_sources.py(또는 기존 브라우저 조사 방식)로 별도 갱신하거나,
 당분간 수동 갱신을 유지해야 한다.
 """
@@ -33,7 +34,6 @@ ITEM_CONFIG = {
     "141": {"name": "콩(백태/대립종)",  "itemcategorycode": "100", "itemcode": "141", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "151": {"name": "고구마",          "itemcategorycode": "100", "itemcode": "151", "kindcode": "00", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "312": {"name": "참깨",            "itemcategorycode": "300", "itemcode": "312", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
-    "313": {"name": "들깨",            "itemcategorycode": "300", "itemcode": "313", "kindcode": "01", "productrankcode": "04", "productclscode": "02", "countrycode": "1101"},
     "651": {"name": "멸치액젓",        "itemcategorycode": "600", "itemcode": "651", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
     "652": {"name": "천일염",          "itemcategorycode": "600", "itemcode": "652", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
 }
@@ -143,8 +143,12 @@ def main():
         if isinstance(items, dict):
             items = [items]
         _diagnose(items)
-        points = []
+        by_date = {}
         for it in items:
+            county = str(it.get("countyname") or "").strip()
+            if county == "평년":
+                # 평년(과거 5년 평균) 행은 실제 가격이 아니다. 섞이면 전년동기 비교가 틀어지므로 제외한다.
+                continue
             regday = it.get("regday", "").replace("-", "").replace("/", "")
             price_raw = (it.get("price") or "").replace(",", "").strip()
             if not regday or not price_raw or price_raw in ("-", ""):
@@ -157,8 +161,20 @@ def main():
             yyyy = it.get("yyyy") or str(today.year)
             if len(regday) <= 5:
                 regday = f"{yyyy}{regday.replace('/', '')}"
-            points.append((regday, price))
-        points = sorted(set(points))
+            by_date.setdefault(regday, []).append((county, price))
+        points = []
+        multi = 0
+        for d, lst in sorted(by_date.items()):
+            if len({pr for _, pr in lst}) > 1:
+                multi += 1
+            pick = next((pr for c, pr in lst if c == "서울"), None)
+            if pick is None:
+                pick = next((pr for c, pr in lst if c == "평균"), None)
+            if pick is None:
+                pick = lst[0][1]
+            points.append((d, pick))
+        if multi:
+            print(f"  [WARN] 평년 제외 후에도 같은 날짜에 서로 다른 값이 {multi}일 있음 — 서울 → 평균 → 첫 값 순으로 선택")
         result[code] = {"name": cfg["name"], "points": points}
         print(f"  -> {len(points)}개 포인트 수집")
         time.sleep(1.5)  # 품목 간 요청 간격을 둬 서버 측 연결 끊김을 예방

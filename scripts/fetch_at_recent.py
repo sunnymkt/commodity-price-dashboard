@@ -36,7 +36,19 @@ TARGETS = {
         "basis": "중도매(화건·상품) — 고춧가루 원료 가격 지표",
         "se_cd": "02", "item_cd": "241", "vrty_cd": "00", "grd_cd": "04",
     },
+    "313": {
+        "name": "들깨",
+        "basis": "중도매(국산·상품, 전국 평균)",
+        "se_cd": "02", "item_cd": "313", "vrty_cd": "01", "grd_cd": "04",
+    },
 }
+
+# 아직 연결하지 않은 품목의 (품종·등급·단위) 조합을 로그에만 출력한다(데이터에는 영향 없음).
+# 로그를 보고 TARGETS 에 추가할 품종·등급을 정한다.  (품목코드, 이름, 구분: 01 소매 / 02 중도매)
+DISCOVER = [
+    ("111", "쌀", "02"), ("141", "콩", "02"), ("151", "고구마", "02"), ("312", "참깨", "02"),
+    ("211", "배추", "02"), ("226", "딸기", "02"), ("651", "멸치액젓", "01"), ("652", "천일염", "01"),
+]
 
 
 def encoded_key(raw):
@@ -51,9 +63,11 @@ def call_api(key, cfg):
         ("numOfRows", "20"),
         ("cond[se_cd::EQ]", cfg["se_cd"]),
         ("cond[item_cd::EQ]", cfg["item_cd"]),
-        ("cond[vrty_cd::EQ]", cfg["vrty_cd"]),
-        ("cond[grd_cd::EQ]", cfg["grd_cd"]),
     ]
+    if cfg.get("vrty_cd"):
+        params.append(("cond[vrty_cd::EQ]", cfg["vrty_cd"]))
+    if cfg.get("grd_cd"):
+        params.append(("cond[grd_cd::EQ]", cfg["grd_cd"]))
     query = "serviceKey=" + encoded_key(key) + "&" + "&".join(
         urllib.parse.quote(k, safe="") + "=" + urllib.parse.quote(v, safe="") for k, v in params
     )
@@ -89,6 +103,25 @@ def extract_rows(payload):
     if isinstance(rows, dict):
         rows = [rows]
     return rows or []
+
+
+def discover(key):
+    """연결 전 품목의 조회 가능한 조합을 로그로 남긴다. 실패해도 본 작업에는 영향이 없도록 예외를 삼킨다."""
+    print("--- [탐색] 아직 연결하지 않은 품목의 조회 가능 조합 ---")
+    for item_cd, name, se_cd in DISCOVER:
+        try:
+            rows = extract_rows(call_api(key, {"se_cd": se_cd, "item_cd": item_cd}))
+        except Exception as e:  # noqa: BLE001
+            print(f"[탐색] {name}({item_cd}) 조회 실패: {e!r}")
+            continue
+        if not rows:
+            print(f"[탐색] {name}({item_cd}, 구분 {se_cd}): 데이터 없음")
+            continue
+        for r in rows:
+            print(f"[탐색] {name}({item_cd}) {r.get('se_nm')} / 품종 {r.get('vrty_cd')} {r.get('vrty_nm')} / "
+                  f"등급 {r.get('grd_cd')} {r.get('grd_nm')} / 단위 {r.get('unit_sz')}{r.get('unit')} / "
+                  f"조사일 {r.get('exmn_ymd')} / 현재 {r.get('exmn_dd_prc')} / 1개월전 {r.get('mm1_bfr_prc')} / 1년전 {r.get('yy1_bfr_prc')}")
+        time.sleep(0.5)
 
 
 def main():
@@ -139,6 +172,10 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(old, f, ensure_ascii=False, indent=2)
     print(f"저장 완료: {out_path} ({len(result)}개 갱신)")
+    try:
+        discover(key)
+    except Exception as e:  # noqa: BLE001
+        print(f"[탐색] 건너뜀: {e!r}")
 
 
 if __name__ == "__main__":
