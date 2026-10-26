@@ -61,5 +61,7 @@ jobs:
             echo "변경 없음"
           else
             git commit -m "chore: 원물 시세 자동 업데이트 $(date -u +%Y-%m-%d)"
+            # 실행 도중 누군가 먼저 push 했어도 거절되지 않도록 원격 변경을 먼저 반영한다
+            git pull --rebase origin main
             git push
           fi
