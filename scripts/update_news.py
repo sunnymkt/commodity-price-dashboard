@@ -37,6 +37,15 @@ KEEP_DAYS = 120              # 이보다 오래된 기사는 목록에서 정리
 MAX_NEWS_PER_ITEM = 6
 MAX_HIKE_PER_CAT = 8
 SUMMARY_MAX = 140
+DUP_WINDOW_DAYS = 5          # 같은 소식의 재가공 기사는 보통 며칠 안에 몰린다
+DUP_TITLE_SIM = 0.40         # 제목 글자쌍(bigram) 유사도가 이 값 이상이면 같은 소식으로 본다
+MAJOR_OUTLETS = {            # 같은 소식이 여러 매체에 있을 때 대표로 우선 쓰는 매체
+    "연합뉴스", "뉴시스", "뉴스1", "한국경제", "매일경제", "헤럴드경제", "머니투데이", "이데일리", "파이낸셜뉴스",
+    "서울경제", "아시아경제", "농민신문", "한국농어민신문", "조선일보", "중앙일보", "동아일보", "한겨레", "경향신문",
+    "KBS", "MBC", "SBS", "YTN",
+}
+ANTONYMS = [("급등", "급락"), ("상승", "하락"), ("인상", "인하"), ("인상", "동결"), ("증가", "감소"), ("오른", "내린"),
+            ("확대", "축소"), ("강화", "완화"), ("풍년", "흉년"), ("과잉", "부족"), ("↑", "↓")]
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -240,13 +249,71 @@ def to_js_literal(obj):
     return s.replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
+# ───────────── 같은 소식 묶기 ─────────────
+def bigrams(t):
+    t = norm_title(t)
+    return {t[i:i + 2] for i in range(len(t) - 1)}
+
+
+def jaccard(a, b):
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def conflicting(t1, t2):
+    """한쪽엔 있고 다른 쪽엔 반대말이 있으면(급등↔급락 등) 비슷해 보여도 다른 소식으로 본다."""
+    for x, y in ANTONYMS:
+        if (x in t1 and y in t2 and x not in t2 and y not in t1) or (y in t1 and x in t2 and y not in t2 and x not in t1):
+            return True
+    a, b = set(re.findall(r"\d+(?:\.\d+)?", t1)), set(re.findall(r"\d+(?:\.\d+)?", t2))
+    return bool(a and b and not (a & b))      # 숫자가 서로 겹치지 않으면(10% vs 5%) 다른 소식
+
+
+def similar(a, b):
+    if abs((a["date"] - b["date"]).days) > DUP_WINDOW_DAYS:
+        return False
+    if conflicting(a["title"], b["title"]):
+        return False
+    return jaccard(bigrams(a["title"]), bigrams(b["title"])) >= DUP_TITLE_SIM
+
+
+def group_similar(items):
+    parent = list(range(len(items)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if similar(items[i], items[j]):
+                parent[find(i)] = find(j)
+    groups = {}
+    for i, it in enumerate(items):
+        groups.setdefault(find(i), []).append(it)
+    return list(groups.values())
+
+
+def collapse(items):
+    """같은 소식 기사들을 하나로 합친다. 대표는 기존에 있던 것 > 주요 매체 > 발췌문이 긴 것 > 최신 순.
+    대표 기사의 'also' 에는 같은 소식을 다룬 다른 매체 수가 들어간다."""
+    out = []
+    for g in group_similar(items):
+        rep = dict(max(g, key=lambda m: (m.get("existing", False), m["source"] in MAJOR_OUTLETS,
+                                         len(m.get("snippet", "")), m["date"])))
+        rep["also"] = sum(1 + m.get("also", 0) for m in g) - 1
+        out.append(rep)
+    return out
+
+
 # ───────────── 원물 수매 이슈 ─────────────
 def collect_news(search, today):
     result = {}
     for code, cfg in NEWS_ITEMS.items():
         kw = re.compile(cfg["kw"])
         need = re.compile(cfg["need"]) if cfg.get("need") else None
-        seen, picked = set(), []
+        seen_url, picked = set(), []
         for q in cfg["q"]:
             for a in fetch_articles(search, q, today):
                 if not kw.search(a["title"]):
@@ -254,16 +321,50 @@ def collect_news(search, today):
                 blob = a["title"] + " " + a["snippet"]
                 if not TOPIC.search(blob) or (need and not need.search(blob)):
                     continue
-                key = norm_title(a["title"])[:40]
-                if key in seen:
+                if a["url"] in seen_url:
                     continue
-                seen.add(key)
+                seen_url.add(a["url"])
                 picked.append(a)
             time.sleep(0.3)
+        raw = len(picked)
+        picked = collapse(picked)                       # 같은 소식을 다룬 여러 매체 기사를 하나로
         picked.sort(key=lambda a: a["date"], reverse=True)
         result[code] = picked[:MAX_NEWS_PER_ITEM]
-        print(f"[news:{code}] {cfg['name']}: 새 기사 후보 {len(result[code])}건")
+        print(f"[news:{code}] {cfg['name']}: 후보 {raw}건 → 같은 소식 정리 후 {len(result[code])}건")
     return result
+
+
+SRC_SUFFIX = re.compile(r"\s*외 \d+곳$")
+
+
+def from_stored(a, today):
+    try:
+        d = datetime.date.fromisoformat(str(a.get("date")))
+    except ValueError:
+        d = today
+    return {
+        "date": d, "title": html.unescape(a.get("title", "")), "snippet": html.unescape(a.get("summary", "")),
+        "url": a.get("url"), "source": SRC_SUFFIX.sub("", html.unescape(a.get("source", ""))),
+        "also": int(a.get("also") or 0), "existing": True, "stored": a,
+    }
+
+
+def to_stored(m):
+    also = m.get("also", 0)
+    src = m["source"] + (f" 외 {also}곳" if also else "")
+    if m.get("existing"):
+        a = dict(m["stored"])
+        a["source"] = esc(src)
+        if also:
+            a["also"] = also
+        else:
+            a.pop("also", None)
+        return a
+    out = {"date": m["date"].isoformat(), "source": esc(src), "title": esc(m["title"]),
+           "url": m["url"], "summary": esc(shorten(m["snippet"], SUMMARY_MAX))}
+    if also:
+        out["also"] = also
+    return out
 
 
 def merge_news(existing, fresh, today):
@@ -271,21 +372,13 @@ def merge_news(existing, fresh, today):
     out = dict(existing)
     for code, arts in fresh.items():
         entry = out.get(code) or {"signal": None, "articles": []}
-        old = entry.get("articles", [])
-        seen_url = {a.get("url") for a in old}
-        seen_title = {norm_title(a.get("title", ""))[:40] for a in old}
-        new = []
-        for a in arts:
-            if a["url"] in seen_url or norm_title(a["title"])[:40] in seen_title:
-                continue
-            new.append({
-                "date": a["date"].isoformat(), "source": esc(a["source"]), "title": esc(a["title"]),
-                "url": a["url"], "summary": esc(shorten(a["snippet"], SUMMARY_MAX)),
-            })
-        merged = new + old
-        merged = [a for a in merged if str(a.get("date", "9999")) >= cutoff.isoformat()]
-        merged.sort(key=lambda a: str(a.get("date", "")), reverse=True)
-        entry["articles"] = merged[:MAX_NEWS_PER_ITEM]
+        old = [from_stored(a, today) for a in entry.get("articles", [])]
+        seen_url = {m["url"] for m in old}
+        new = [dict(a, existing=False) for a in arts if a["url"] not in seen_url]
+        merged = collapse(old + new)                    # 기존에 쌓인 중복도 이번에 함께 정리된다
+        merged = [m for m in merged if m["date"] >= cutoff]
+        merged.sort(key=lambda m: m["date"], reverse=True)
+        entry["articles"] = [to_stored(m) for m in merged[:MAX_NEWS_PER_ITEM]]
         out[code] = entry
     return out
 
@@ -319,7 +412,7 @@ def collect_hike(search, today):
                 continue
             key = norm_title(a["title"])[:40]
             event = (f["company"], f["cat"], f["pct"]) if f["pct"] != "-" else None
-            if key in seen or (event and event in seen):
+            if key in seen or (event and event in seen) or any(similar(a, b) for b, _ in cands):
                 continue
             seen.add(key)
             if event:
@@ -346,6 +439,9 @@ def merge_hike(existing, cands, today):
         if a["url"] in seen_url or norm_title(a["title"])[:40] in seen_title:
             continue
         g = groups.get(f["cat"])
+        if g is not None and f["pct"] != "-" and any(
+                it.get("company") == esc(f["company"]) and it.get("pct") == esc(f["pct"]) for it in g["items"]):
+            continue                                     # 같은 회사·같은 인상률이 이미 있으면 같은 소식
         if g is None:
             g = groups[f["cat"]] = {"cat": f["cat"], "items": []}
             order.append(f["cat"])
