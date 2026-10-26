@@ -63,9 +63,20 @@ Apps Script 트리거 (매일 오전 9시대)  checkAndSend()
 
 연결되는 품목은 `scripts/fetch_at_recent.py` 의 `TARGETS` 에 추가합니다(실행 로그의 `[탐색]` 줄에서 품종·등급 코드 확인).
 
+## 뉴스 탭 자동 갱신 (원물 수매 이슈 · 가격인상 동향)
+
+`scripts/update_news.py` 가 매일 `index.html` 의 `NEWS_DATA`(품목별 수매 이슈)와 `HIKE_NEWS_DATA`(가격 인상 사례)를 갱신합니다.
+
+- 출처: 네이버 검색 API(뉴스). `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` 이 없으면 건너뜁니다.
+- 기존에 정리해 둔 기사는 지우지 않고 새 기사를 앞에 추가합니다(중복 제거, 120일 지난 기사 정리, 품목당 6건·카테고리당 8건).
+- 새 기사의 요약은 검색 결과 발췌문입니다. 가격 인상 카드의 회사·인상률·카테고리는 제목에서 규칙으로 뽑은 값이라 틀릴 수 있어 가끔 확인이 필요합니다.
+- 가져온 텍스트는 HTML 태그를 제거하고 이스케이프하며, URL은 http(s)만 허용합니다.
+- 검색이 모두 실패하면 `index.html` 을 바꾸지 않습니다.
+- 검색어·필터·회사 목록은 `update_news.py` 상단(`NEWS_ITEMS`, `HIKE_QUERIES`, `HIKE_CATS`, `COMPANIES`)에서 수정합니다.
+
 ## 인증키
 
-- 공공데이터포털 인증키는 GitHub Secrets 의 `DATA_GO_KR_KEY` 로만 사용합니다. 코드·문서·채팅에 적지 않습니다.
+- 공공데이터포털 인증키는 GitHub Secrets 의 `DATA_GO_KR_KEY`, 네이버 검색 API 키는 `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` 으로만 사용합니다. 코드·문서·채팅에 적지 않습니다.
 
 ## 문제 확인
 

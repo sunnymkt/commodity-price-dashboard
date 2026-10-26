@@ -38,6 +38,12 @@ jobs:
       - name: index.html 갱신
         run: python scripts/update_dashboard.py
 
+      - name: 뉴스 갱신 (원물 수매 이슈·가격인상 동향)
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python scripts/update_news.py
+
       - name: 관심품목 급등/급락 이메일 알림
         env:
           SUBSCRIBE_SHEET_API_URL: ${{ secrets.SUBSCRIBE_SHEET_API_URL }}
