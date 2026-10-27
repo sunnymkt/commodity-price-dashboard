@@ -198,7 +198,8 @@ def main():
                 pick = lst[0][1]
             points.append((d, pick))
         if multi:
-            print(f"  [WARN] 평년 제외 후에도 같은 날짜에 서로 다른 값이 {multi}일 있음 — {" → ".join(cfg.get("prefer_county") or ["서울", "평균"])} → 첫 값 순으로 선택")
+            pref_txt = " → ".join(cfg.get("prefer_county") or ["서울", "평균"])
+            print(f"  [WARN] 평년 제외 후에도 같은 날짜에 서로 다른 값이 {multi}일 있음 — {pref_txt} → 첫 값 순으로 선택")
         result[code] = {"name": cfg["name"], "points": points}
         print(f"  -> {len(points)}개 포인트 수집")
         time.sleep(1.5)  # 품목 간 요청 간격을 둬 서버 측 연결 끊김을 예방
