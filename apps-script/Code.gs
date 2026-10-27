@@ -24,6 +24,7 @@ const CONFIG = {
   SUB_SHEET: '구독자',
   STATE_SHEET: '발송이력',
   ONLY_AT_SOURCES: true, // true면 가격 출처가 검증된 API(최근일자 도·소매가격, yoy_src='at') 품목만 급등·급락을 판정. 나머지는 이력 정리가 끝날 때까지 알림 제외
+  EXTRA_TRUSTED_CODES: ['651', '652'], // ONLY_AT_SOURCES=true 여도 판정에 넣을 품목 코드(이력 검증을 마친 KAMIS 품목): 멸치액젓, 천일염
   MAX_STALE_DAYS: 21,    // 최근 조사일이 오늘보다 이 일수 넘게 오래된 품목(비수기·조사 중단)은 알림 판정에서 제외
   YOY_MAX_GAP_DAYS: 21, // 전년동기 비교: '1년 전 같은 날' 자료가 없을 때 허용하는 최대 날짜 차이(일). 넘으면 판정 제외
   YOY_MAX_SPREAD_PCT: 10, // 1년 전 같은 시기(±7일) 가격이 이 비율(%) 넘게 들쭉날쭉하면 자료를 믿기 어렵다고 보고 그 품목은 판정 보류
@@ -134,7 +135,7 @@ function testSend() { run_(true, Session.getEffectiveUser().getEmail()); }
 function run_(isTest, testTo) {
   const data = fetchData_();
   // 1kg 기준 환산(대시보드와 동일) 후, 전년동기(1년 전 같은 날) 대비를 가격 이력에서 직접 계산
-  Object.keys(data).forEach(c => { data[c] = applyTrueYoy_(toKgView_(data[c])); });
+  Object.keys(data).forEach(c => { data[c] = applyTrueYoy_(toKgView_(data[c]), c); });
   const flagged = {};
   Object.keys(data).forEach(code => {
     const it = data[code];
@@ -274,7 +275,7 @@ function nearest_(pool, target, maxGapDays) {
  * 전년동기 대비 = (최근 조사일 가격) ÷ (정확히 1년 전 같은 날 가격) − 1
  * 같은 날 자료가 없으면 가장 가까운 조사일(YOY_MAX_GAP_DAYS 이내)을 쓰고, 그것도 없으면 판정에서 제외(null)
  */
-function applyTrueYoy_(item) {
+function applyTrueYoy_(item, code) {
   // 최근일자 도·소매가격 API(yoy_src='at')는 1년 전 가격을 API가 직접 주므로 그 값을 그대로 쓴다
   if (item.yoy_src === 'at' && item.yoy_price != null && item.yoy_date && item.latest_price != null) {
     const o = Object.assign({}, item);
@@ -290,7 +291,11 @@ function applyTrueYoy_(item) {
   }
   const out = Object.assign({}, item);
   out.yoy_chg_pct = null; out.yoy_date = null; out.yoy_price = null; out.yoy_gap = null; out.yoy_pool = null;
-  if (CONFIG.ONLY_AT_SOURCES) return out;   // 출처가 검증되지 않은 품목은 전년동기 판정에서 제외
+  if (CONFIG.ONLY_AT_SOURCES && CONFIG.EXTRA_TRUSTED_CODES.indexOf(String(code)) < 0) return out;   // 출처가 검증되지 않은 품목은 전년동기 판정에서 제외
+  if (item.latest_date) {                                // 비수기·조사 중단 품목은 오래된 값으로 알리지 않는다
+    const age = (new Date().getTime() - parseYmd_(item.latest_date).getTime()) / 86400000;
+    if (age > CONFIG.MAX_STALE_DAYS) { out.yoy_stale = true; return out; }
+  }
   if (item.latest_price == null || !item.latest_date) return out;
   const pool = pricePool_(item);
   const hit = nearest_(pool, oneYearBefore_(parseYmd_(item.latest_date)), CONFIG.YOY_MAX_GAP_DAYS);
