@@ -31,8 +31,14 @@ KAMIS_BASE = "http://www.kamis.or.kr/service/price/xml.do"
 # code -> (itemcategorycode, itemcode, kindcode, productrankcode, productclscode, countrycode)
 # productclscode: 01=소매, 02=도매
 ITEM_CONFIG = {
-    "651": {"name": "멸치액젓",        "itemcategorycode": "600", "itemcode": "651", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
-    "652": {"name": "천일염",          "itemcategorycode": "600", "itemcode": "652", "kindcode": "00", "productrankcode": "04", "productclscode": "01", "countrycode": "1101"},
+    # 멸치액젓·천일염: KAMIS 사이트 '소매가격 > 기간별' 조회 주소(itemcategorycode=600, kindcode·productrankcode·countycode 비움)와
+    # 같은 조건을 먼저 시도하고, 자료가 없으면 아래 variants 를 차례로 시도한다. 전국 평균 행('평균')을 우선 쓴다.
+    "651": {"name": "멸치액젓", "itemcategorycode": "600", "itemcode": "651", "kindcode": "", "productrankcode": "", "productclscode": "01", "countrycode": "",
+            "variants": [{}, {"kindcode": "00"}, {"kindcode": "00", "productrankcode": "04", "countrycode": "1101"}],
+            "prefer_county": ["평균", "서울"]},
+    "652": {"name": "천일염", "itemcategorycode": "600", "itemcode": "652", "kindcode": "", "productrankcode": "", "productclscode": "01", "countrycode": "",
+            "variants": [{}, {"kindcode": "00"}, {"kindcode": "00", "productrankcode": "04", "countrycode": "1101"}],
+            "prefer_county": ["평균", "서울"]},
 }
 
 # 가락시장 경락가격(배추/딸기)은 별도 action(price/market/period.do)이며
@@ -81,6 +87,31 @@ def fetch_period_product(cert_key, cert_id, cfg, startday, endday):
     return None
 
 
+def extract_items(data):
+    """KAMIS 응답에서 행 목록을 꺼낸다. API 오류 응답이면 None."""
+    condition = data.get("condition")
+    if isinstance(condition, list) and condition and condition[0].get("code") not in (None, "000"):
+        print(f"  -> API 오류: {condition}")
+        return None
+    data_field = data.get("data")
+    if isinstance(data_field, dict):
+        items = data_field.get("item", [])
+    elif isinstance(data_field, list):
+        # 응답이 [{"item": [...]}] 형태이거나 item 리스트 자체가 바로 오는 경우 모두 대응
+        items = []
+        for entry in data_field:
+            if isinstance(entry, dict) and "item" in entry:
+                entry_items = entry["item"]
+                items.extend(entry_items if isinstance(entry_items, list) else [entry_items])
+            elif isinstance(entry, dict):
+                items.append(entry)
+    else:
+        items = []
+    if isinstance(items, dict):
+        items = [items]
+    return items
+
+
 def _diagnose(items):
     """응답 행이 어떻게 구성돼 있는지 로그로만 남긴다(데이터에는 영향 없음).
     같은 날짜에 서로 다른 가격이 여러 개 들어오는 원인(지역·시장·연도 등)을 파악하기 위한 진단용."""
@@ -115,30 +146,24 @@ def main():
     result = {}
     for code, cfg in ITEM_CONFIG.items():
         print(f"[{code}] {cfg['name']} 조회 중...")
-        data = fetch_period_product(cert_key, cert_id, cfg, startday, endday)
-        if not data:
-            print(f"  -> 실패, 건너뜀")
+        items = None
+        for v in (cfg.get("variants") or [{}]):
+            c2 = dict(cfg)
+            c2.update(v)
+            data = fetch_period_product(cert_key, cert_id, c2, startday, endday)
+            if not data:
+                print("  -> 실패")
+                continue
+            got = extract_items(data)
+            if got:
+                items = got
+                if v:
+                    print(f"  -> 조회 조건 {v} 로 자료 확인")
+                break
+            print(f"  -> 자료 없음(조건 {v or '기본'}) — 다음 조건 시도" if len(cfg.get("variants") or []) > 1 else "  -> 자료 없음")
+        if not items:
+            print("  -> 건너뜀")
             continue
-        condition = data.get("condition")
-        if isinstance(condition, list) and condition and condition[0].get("code") not in (None, "000"):
-            print(f"  -> API 오류: {condition}")
-            continue
-        data_field = data.get("data")
-        if isinstance(data_field, dict):
-            items = data_field.get("item", [])
-        elif isinstance(data_field, list):
-            # 응답이 [{"item": [...]}] 형태이거나 item 리스트 자체가 바로 오는 경우 모두 대응
-            items = []
-            for entry in data_field:
-                if isinstance(entry, dict) and "item" in entry:
-                    entry_items = entry["item"]
-                    items.extend(entry_items if isinstance(entry_items, list) else [entry_items])
-                elif isinstance(entry, dict):
-                    items.append(entry)
-        else:
-            items = []
-        if isinstance(items, dict):
-            items = [items]
         _diagnose(items)
         by_date = {}
         for it in items:
@@ -164,14 +189,16 @@ def main():
         for d, lst in sorted(by_date.items()):
             if len({pr for _, pr in lst}) > 1:
                 multi += 1
-            pick = next((pr for c, pr in lst if c == "서울"), None)
-            if pick is None:
-                pick = next((pr for c, pr in lst if c == "평균"), None)
+            pick = None
+            for pc in (cfg.get("prefer_county") or ["서울", "평균"]):
+                pick = next((pr for c, pr in lst if c == pc), None)
+                if pick is not None:
+                    break
             if pick is None:
                 pick = lst[0][1]
             points.append((d, pick))
         if multi:
-            print(f"  [WARN] 평년 제외 후에도 같은 날짜에 서로 다른 값이 {multi}일 있음 — 서울 → 평균 → 첫 값 순으로 선택")
+            print(f"  [WARN] 평년 제외 후에도 같은 날짜에 서로 다른 값이 {multi}일 있음 — {" → ".join(cfg.get("prefer_county") or ["서울", "평균"])} → 첫 값 순으로 선택")
         result[code] = {"name": cfg["name"], "points": points}
         print(f"  -> {len(points)}개 포인트 수집")
         time.sleep(1.5)  # 품목 간 요청 간격을 둬 서버 측 연결 끊김을 예방
