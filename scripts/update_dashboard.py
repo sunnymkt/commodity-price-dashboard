@@ -277,11 +277,46 @@ def merge_intl():
 
     open(INDEX_PATH, "w", encoding="utf-8").write(txt)
 
+HISTORY_JSON = os.path.join(ROOT, "data", "history.json")
+HISTORY_KEEP_DAYS = 400   # 주간·월간 뷰(최대 12개월 + 전년 동기 비교)에 필요한 만큼만 보관
+
+
+def merge_history():
+    """data/history.json(과거 백필 + 매일 누적)을 갱신하고 index.html 의 HISTORY 에 내장한다.
+    DATA 의 일별 points 를 매번 이어 붙이므로, 백필 이후에는 자동으로 누적된다.
+    카드 화면(DATA.points)은 건드리지 않고 주간·월간 뷰만 HISTORY 를 쓴다."""
+    txt = open(INDEX_PATH, encoding="utf-8").read()
+    m = re.search(r"const DATA = (\{.*?\});\s*\n", txt, re.S)
+    if not m:
+        print("DATA 블록을 찾지 못해 HISTORY 갱신을 건너뜀")
+        return
+    data = json.loads(m.group(1))
+    hist = {}
+    if os.path.exists(HISTORY_JSON):
+        with open(HISTORY_JSON, encoding="utf-8") as f:
+            hist = json.load(f)
+    cutoff = (datetime.date.today() - datetime.timedelta(days=HISTORY_KEEP_DAYS)).strftime("%Y%m%d")
+    for code, d in data.items():
+        pts = {p[0]: p[1] for p in hist.get(code, [])}
+        for p in d.get("points", []):
+            pts[p[0]] = p[1]          # 실제 수집값(DATA)이 백필값보다 우선
+        hist[code] = [[k, v] for k, v in sorted(pts.items()) if k >= cutoff]
+    with open(HISTORY_JSON, "w", encoding="utf-8") as f:
+        json.dump(hist, f, ensure_ascii=False)
+    hm = re.search(r"const HISTORY = (\{.*?\});[ \t]*\r?\n", txt, re.S)
+    if not hm:
+        print("index.html 에 HISTORY 자리가 없어 내장을 건너뜀(period_view_patch/apply_history.py 먼저 적용)")
+        return
+    txt = txt[: hm.start(1)] + json.dumps(hist, ensure_ascii=False, separators=(",", ":")) + txt[hm.end(1):]
+    open(INDEX_PATH, "w", encoding="utf-8").write(txt)
+    print(f"HISTORY 갱신: {sum(len(v) for v in hist.values())}개 포인트")
+
 
 def main():
     merge_domestic()
     merge_at_recent()
     merge_intl()
+    merge_history()
     print("완료. index.html이 갱신되었습니다.")
 
 
