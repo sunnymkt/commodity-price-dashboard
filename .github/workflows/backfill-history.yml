@@ -1,0 +1,62 @@
+name: 과거 이력 백필 (KAMIS)
+
+# 수동 실행 전용. GitHub Secrets 의 KAMIS_CERT_KEY / KAMIS_CERT_ID 를 그대로 쓰므로 키를 PC 에 꺼낼 필요가 없다.
+#   1) mode=probe : 품목별 응답 조합만 로그에 출력(저장 안 함)
+#   2) mode=run   : 과거 400일치를 data/history.json 에 채우고 index.html 의 HISTORY 에 반영한 뒤 커밋
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe(확인만) 또는 run(백필 실행)'
+        type: choice
+        options: [probe, run]
+        default: probe
+      only:
+        description: '특정 품목만(쉼표 구분, 예: 313,111). 비우면 전체'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: price-update
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: KAMIS 백필
+        env:
+          KAMIS_CERT_KEY: ${{ secrets.KAMIS_CERT_KEY }}
+          KAMIS_CERT_ID: ${{ secrets.KAMIS_CERT_ID }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.mode }}" = "probe" ]; then ARGS="--probe"; fi
+          if [ -n "${{ inputs.only }}" ]; then ARGS="$ARGS --only ${{ inputs.only }}"; fi
+          python scripts/backfill_kamis.py $ARGS
+
+      - name: index.html 에 반영
+        if: inputs.mode == 'run'
+        run: python scripts/update_dashboard.py
+
+      - name: 커밋
+        if: inputs.mode == 'run'
+        run: |
+          git config user.name "price-bot"
+          git config user.email "price-bot@users.noreply.github.com"
+          git add index.html data/
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+          else
+            git commit -m "chore: 과거 이력 백필 $(date -u +%Y-%m-%d)"
+            git pull --rebase origin main
+            git push
+          fi

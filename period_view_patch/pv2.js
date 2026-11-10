@@ -82,7 +82,7 @@ function createPeriodView(cfg) {
     const up = chg.filter(v => v >= 1).length, dn = chg.filter(v => v <= -1).length;
     let h = `<div class="pv-kpis"><div class="pv-kpi">${st.g === 'w' ? '지난주' : '지난달'} 대비 상승<b class="pv-up">${up}품목</b></div>`
       + `<div class="pv-kpi">보합<b>${chg.length - up - dn}품목</b></div><div class="pv-kpi">하락<b class="pv-dn">${dn}품목</b></div>`
-      + `<div class="pv-kpi">비교 가능 품목<b>${chg.length}/${rows.length}</b></div></div>`;
+      + `<div class="pv-kpi" title="이번 기간과 직전 기간 값이 모두 있어 증감을 계산할 수 있는 품목 수">집계 대상 품목<br><span style="font-size:10px">(이번·직전 기간 값 모두 있음)</span><b>${chg.length}/${rows.length}</b></div></div>`;
     h += `<div class="pv-card"><table><thead><tr><th class="nm">품목</th><th class="now">${cfg.nowHead}</th>`;
     cols.forEach((t, i) => { const [a, b] = label(t); h += `<th class="${i === n - 1 ? 'cur' : ''}">${a}<small>${b}${i === n - 1 ? ' 진행' : ''}</small></th>`; });
     h += `</tr></thead><tbody>`;

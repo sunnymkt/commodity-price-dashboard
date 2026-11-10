@@ -204,6 +204,10 @@ def main():
         print(f"  -> {len(points)}개 포인트 수집")
         time.sleep(1.5)  # 품목 간 요청 간격을 둬 서버 측 연결 끊김을 예방
 
+    if not result:
+        # 전 품목 조회 실패(키 만료·서버 장애 등)일 때 빈 {} 로 기존 이력을 덮어쓰지 않는다.
+        print("[WARN] 수집된 품목이 없어 data/kamis_latest.json 을 갱신하지 않습니다(기존 파일 유지).", file=sys.stderr)
+        return
     out_path = os.path.join(os.path.dirname(__file__), "..", "data", "kamis_latest.json")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
