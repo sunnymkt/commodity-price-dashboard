@@ -1077,7 +1077,7 @@ function watchItemPriceText(item) {
 }
 
 // 식품업계 가격인상 동향 탭: 가공식품(라면·음료·과자·간편식 등) 가격 인상 뉴스 (수동 조사·정리, 실시간 갱신 아님)
-const HIKE_NEWS_AS_OF = '2026-11-11';
+const HIKE_NEWS_AS_OF = '2026-11-12';
 const HIKE_NEWS_DATA = [
   {
     "cat": "김치",
@@ -1545,7 +1545,7 @@ const HIKE_NEWS_DATA = [
 ];
 
 // 원물 수매 이슈 탭: 품목명+"수매" 키워드로 조사한 뉴스 (수동 조사·정리, 실시간 갱신 아님)
-const NEWS_AS_OF = '2026-11-11';
+const NEWS_AS_OF = '2026-11-12';
 const NEWS_DATA = {
   "111": {
     "signal": {
@@ -1641,6 +1641,13 @@ const NEWS_DATA = {
     "signal": null,
     "articles": [
       {
+        "date": "2026-11-12",
+        "source": "동아일보",
+        "title": "김장철 넘쳐난 배추… 가격폭락해 산지 폐기",
+        "url": "https://www.donga.com/news/Economy/article/all/20261111/135009311/2",
+        "summary": "가격 약세가 이어지면 12월 하순부터 겨울배추도 추가 매입할 방침이다. 아울러 정부 수급 조절 사업에 참여하는 겨울배추 농가에는 가격이 크게 떨어질 경우 평년 가격의 80% 수준까지 차액을 보전해주기로 했다."
+      },
+      {
         "date": "2026-11-11",
         "source": "gokorea.kr",
         "title": "김장철 배추값 들쭉날쭉…포장김치 수요 급증",
@@ -1674,13 +1681,6 @@ const NEWS_DATA = {
         "title": "“뭐야, 배추값 이렇게 싸졌어?” 주부들 환호…올해 김장비 20만원 밑으...",
         "url": "https://www.sedaily.com/article/20113213?ref=naver",
         "summary": "채소 가격이 큰 폭으로 하락하면서 전체 김장 비용은 오히려 줄었다. 정부 640억원 할인 지원…농가는 ‘배추 소비’ 호소 정부는 김장철 소비자 부담을 낮추고 농가의 판로를 확보하기 위한 수급 안정 대책을..."
-      },
-      {
-        "date": "2026-11-11",
-        "source": "kwangju.co.kr",
-        "title": "가격 폭락 배추 수급 안정대책 마련",
-        "url": "http://www.kwangju.co.kr/article.php?aid=1794396420805280006",
-        "summary": "김장철을 앞둔 배추 가격 폭락과 관련, 전남광주시가 지역 배추 농가들의 피해를 줄이기 위한 수급안정 대책을 마련했다. 전남광주시는 12일 오전 10시 30분 전남광주시 무안청사에서 기자간담회를 갖고 ‘배추..."
       }
     ]
   },
