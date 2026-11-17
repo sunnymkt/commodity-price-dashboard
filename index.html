@@ -1077,7 +1077,7 @@ function watchItemPriceText(item) {
 }
 
 // 식품업계 가격인상 동향 탭: 가공식품(라면·음료·과자·간편식 등) 가격 인상 뉴스 (수동 조사·정리, 실시간 갱신 아님)
-const HIKE_NEWS_AS_OF = '2026-11-17';
+const HIKE_NEWS_AS_OF = '2026-11-18';
 const HIKE_NEWS_DATA = [
   {
     "cat": "김치",
@@ -1545,7 +1545,7 @@ const HIKE_NEWS_DATA = [
 ];
 
 // 원물 수매 이슈 탭: 품목명+"수매" 키워드로 조사한 뉴스 (수동 조사·정리, 실시간 갱신 아님)
-const NEWS_AS_OF = '2026-11-17';
+const NEWS_AS_OF = '2026-11-18';
 const NEWS_DATA = {
   "111": {
     "signal": {
@@ -1553,12 +1553,19 @@ const NEWS_DATA = {
     },
     "articles": [
       {
+        "date": "2026-11-18",
+        "source": "newsfarm.co.kr",
+        "title": "쌀전업농전남도연합회, 벼 수매 목표가격제 도입 촉구",
+        "url": "http://www.newsfarm.co.kr/news/articleView.html?idxno=102999",
+        "summary": "연합회는 현재 쌀 생산과 수매·유통 관련 업무가 서로 다른 부서에 분산돼 있어 농업인들의 불편이 발생하고 있다며 생산부터 수매, 유통, 수급조절까지 관련 업무를 일관되게 담당할 수 있도록 행정체계를 개선해 줄..."
+      },
+      {
         "date": "2026-11-17",
-        "source": "ggilbo.com 외 1곳",
+        "source": "ggilbo.com 외 4곳",
         "title": "옥천군, 2026년산 공공급식용 친환경 벼 289.6톤 수매",
         "url": "https://www.ggilbo.com/news/articleView.html?idxno=1193650",
         "summary": "6톤을 오는 11월 24일과 12월 4일 이틀에 걸쳐 수매한다고 밝혔다. 11월 24일에는 안남면과 안내면 출하... 수매 대상은 800㎏ 톤백 단위로 포장하고 수분 함량을 13.0~15.0%로 건조한 유기농 벼다. 공공비축미 기준 1등급...",
-        "also": 1
+        "also": 4
       },
       {
         "date": "2026-11-17",
@@ -1587,13 +1594,6 @@ const NEWS_DATA = {
         "title": "나주시, 2026년산 공공비축 건조벼 수매 돌입",
         "url": "https://daily.hankooki.com/news/articleView.html?idxno=1426060",
         "summary": "윤병태 나주시장(왼쪽)이 수매 현장에 출하된 쌀의 수분과 품질 상태를 점검하고 있다. 사진=나주시 제공... 아울러 수매 현장에서 나오는 농가의 고충을 행정에 즉시 반영하는 한편, 농림축산식품부와..."
-      },
-      {
-        "date": "2026-11-17",
-        "source": "breaknews.com",
-        "title": "김해시, 올해 공공비축미 2151t 매입…건조벼 수매 시작",
-        "url": "http://www.breaknews.com/1251626",
-        "summary": "산물벼 매입을 마무리 단계에 두고 17일부터 건조벼 수매를 시작하면서... 추진해 쌀 수급과 농가 경영 안정에 힘쓰겠다”고 말했다. *아래는 위 기사를 '구글..."
       }
     ]
   },
